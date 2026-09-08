@@ -1,12 +1,12 @@
 # Magocoro
 
-孫目線の成長シェアサービス。親は写真とメモを送るだけ。AIが孫目線のお手紙にして、祖父母のスマホやポストへ届ける。
+孫目線の成長シェアサービス。親は写真と孫口調の本文を入れてWeb手紙を作り、リンクをLINEに貼ると祖父母のスマホで開ける。
 
-- 事業企画・要件定義：`docs/PLAN-20260908-300-magocoro-growth-share.md`（`01_kcp-v2` の正本コピー。履歴参照用）
-- 要件・設計の正本：`docs/superpowers/specs/2026-09-08-magocoro-mvp-design.md`
-- 実装計画：`docs/superpowers/plans/2026-09-08-magocoro-mvp-implementation.md`
+- 要件・設計の正本：`docs/superpowers/specs/2026-09-08-magocoro-web-letter-design.md`
+- 実装計画：未作成（仕様承認後）
 - 開発の進め方：`AGENTS.md`
+- 着想メモ：`docs/PLAN-20260908-300-magocoro-growth-share.md`（本仕様の制約源ではない）
 
 ## 状態
 
-step3（要件・実装計画）まで完了。step4（実装）は未着手。
+Web手紙スライスの設計書を作成済み。レビュー待ち。実装は未着手。

@@ -1,5 +1,7 @@
 # Magocoro MVP Implementation Plan
 
+> **使わない。** localStorage・テンプレート生成前提の旧計画。正本仕様は `docs/superpowers/specs/2026-09-08-magocoro-web-letter-design.md`。実装計画は仕様承認後に作り直す。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Web手紙の作成→プレビュー→共有→スタンプ反応の1ループが動く静的SPAを実装する。

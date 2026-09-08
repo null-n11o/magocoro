@@ -1,13 +1,14 @@
 # Magocoro
 
-孫目線の成長シェアサービス。親は写真とメモを入れるだけ。孫口調のWeb手紙が作れ、共有リンクとスタンプ反応まで回るMVP。静的SPA（Vite + React + TS + Tailwind、DBなし、外部通信なし）。
+孫目線の成長シェアサービス。親は写真と孫口調の本文を入れてWeb手紙を作り、リンクをLINEに貼ると祖父母のスマホで開ける。今回の実装対象はWeb手紙の1ループ（Cloudflare Pages + Worker + R2）。
 
 ## 設計書（読む順）
 
-1. `docs/superpowers/specs/2026-09-08-magocoro-mvp-design.md`（要件・設計の正本。自己完結）
-2. `docs/superpowers/plans/2026-09-08-magocoro-mvp-implementation.md`（実装計画。Task 1〜6は未実施）
-3. `docs/PLAN-20260908-300-magocoro-growth-share.md`（上位企画の原本コピー。履歴参照用）
+1. `docs/superpowers/specs/2026-09-08-magocoro-web-letter-design.md`（要件・設計の正本。自己完結）
+2. 実装計画は未作成。仕様承認後に `docs/superpowers/plans/` へ置く
+3. `docs/PLAN-20260908-300-magocoro-growth-share.md`（着想メモ。本仕様の制約源ではない）
 4. 新規開発の要件・計画は `docs/superpowers/specs/` と `docs/superpowers/plans/` に置く。作り方は「開発フロー」参照。
+5. 旧下書き（使わない）: `docs/superpowers/specs/2026-09-08-magocoro-mvp-design.md` / `docs/superpowers/plans/2026-09-08-magocoro-mvp-implementation.md`
 
 ## Commands
 
@@ -23,19 +24,19 @@
 
 ## Architecture
 
-- 入力フォーム→LetterInput→LetterGenerator（テンプレート式）→Letter→LetterStore抽象（localStorage）→2画面（作る `/` / 手紙 `/letter/:id`＋スタンプ）。
-- 画面は `LetterStore` 抽象（`src/store/storage.ts`）にだけ依存する。将来Workers+R2へ差し替えても画面は変更しない。
-- 文面生成は `LetterGenerator` 抽象（`src/letter/generator.ts`）にだけ依存する。MVPはテンプレート式。LLM実装は将来の差し替え先で、MVPでは作らない。
-- 写真は端末内でDataURL化しlocalStorageに保存する（1通あたり合計2MB上限）。`magocoro.letters.v1` 以外の永続化はしない。
+- 作る画面 → `LetterApi`（`src/api/letters.ts`）→ Worker → R2。手紙画面は取得とスタンプだけ同じ窓口を使う。
+- 画面は `LetterApi` にだけ依存する。LINEやハガキを足すときは Worker の奥だけ増やす。
+- 文面生成はしない。本文は親が書いたものがそのまま載る。
+- 写真と手紙JSONは R2。ブラウザは R2 を直接叩かない。1枚2MBまで、JPEG / PNG / WebP、1〜3枚。
 
 ## Working rules
 
 - 実装計画の Task 順で進める。Taskを飛ばさない。
 - TDD厳守（RED-GREEN-REFACTOR）。プレースホルダ・ダミー文面禁止。各タスク完了ごとにコミットし、次のタスクへの進行確認を取る。
 - 実装タスクが完了したら、検証後に必ず作業ブランチからPRを作成して引き渡す。マージ・デプロイは明示依頼がない限り実施しない。
-- **PLAN Global Constraints が最優先。** UIは日本語のみ（`lang="ja"`）、コンテンツ面は和紙・便箋の質感（`page #f7f2e9` / `surface #fffdf8` / `text #33302a` / `muted #8a7f72` / `line #ddd2c2` / `accent #c4543a`）、切手風フレームは白縁＋波線、紫・ネオン・金・絵文字の装飾利用禁止、見出しと本文は Noto Sans JP、動き150–400ms（`prefers-reduced-motion` で無効化）、タップ面44px以上・スタンプボタンに `aria-label`＋`aria-pressed`、ページ全体の横スクロール禁止・最大幅モバイルカラム（`max-w-lg`）中央寄せ、秘密値・外部キーなし・外部通信なし（フォントCDNを除く）。
+- **設計書の制約が最優先。** UIは日本語のみ（`lang="ja"`）、コンテンツ面は和紙・便箋の質感（`page #f7f2e9` / `surface #fffdf8` / `text #33302a` / `muted #8a7f72` / `line #ddd2c2` / `accent #c4543a`）、切手風フレームは白縁＋波線、紫・ネオン・金・絵文字の装飾利用禁止、見出しと本文は Noto Sans JP、動き150–400ms（`prefers-reduced-motion` で無効化）、タップ面44px以上・スタンプボタンに `aria-label`＋`aria-pressed`、ページ全体の横スクロール禁止・最大幅モバイルカラム（`max-w-lg`）中央寄せ、秘密値はリポジトリに入れない。外部LLM・決済・LINEにはつながない（自前WorkerとフォントCDNのみ）。
 - 未知ID・破損データは落とさず専用表示＋作る導線にする。例外画面を出さない。
-- デプロイ・公開URL確定はCEO作業で実装外。秘密値はリポジトリに入れない。
+- デプロイ・公開URL確定は明示依頼があるまで実装外。秘密値はリポジトリに入れない。
 
 ## 開発フロー（superpowers）
 
@@ -64,7 +65,7 @@
 
 ### Taste系スキルの扱い（補助のみ）
 
-`design-taste-frontend` / `minimalist-ui` / `redesign-existing-projects` は新規画面の補助参照に限定する。PLAN Global Constraints と競合したら Constraints が勝つ。taste既定のフォント差し替え・パレット変更は、設計書の改訂＋CEO承認なしに行わない。
+`design-taste-frontend` / `minimalist-ui` / `redesign-existing-projects` は新規画面の補助参照に限定する。設計書の制約と競合したら設計書が勝つ。taste既定のフォント差し替え・パレット変更は、設計書の改訂なしに行わない。
 
 ### Superpowers の使い方
 
