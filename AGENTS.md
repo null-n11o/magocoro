@@ -1,12 +1,12 @@
-# おてがみ（仮） Otegami
+# Magocoro
 
 孫目線の成長シェアサービス。親は写真とメモを入れるだけ。孫口調のWeb手紙が作れ、共有リンクとスタンプ反応まで回るMVP。静的SPA（Vite + React + TS + Tailwind、DBなし、外部通信なし）。
 
 ## 設計書（読む順）
 
-1. `docs/superpowers/specs/2026-09-08-otegami-mvp-design.md`（要件・設計の正本。自己完結）
-2. `docs/superpowers/plans/2026-09-08-otegami-mvp-implementation.md`（実装計画。Task 1〜6は未実施）
-3. `docs/PLAN-20260908-300-otegami-growth-share.md`（上位企画の原本コピー。履歴参照用）
+1. `docs/superpowers/specs/2026-09-08-magocoro-mvp-design.md`（要件・設計の正本。自己完結）
+2. `docs/superpowers/plans/2026-09-08-magocoro-mvp-implementation.md`（実装計画。Task 1〜6は未実施）
+3. `docs/PLAN-20260908-300-magocoro-growth-share.md`（上位企画の原本コピー。履歴参照用）
 4. 新規開発の要件・計画は `docs/superpowers/specs/` と `docs/superpowers/plans/` に置く。作り方は「開発フロー」参照。
 
 ## Commands
@@ -26,7 +26,7 @@
 - 入力フォーム→LetterInput→LetterGenerator（テンプレート式）→Letter→LetterStore抽象（localStorage）→2画面（作る `/` / 手紙 `/letter/:id`＋スタンプ）。
 - 画面は `LetterStore` 抽象（`src/store/storage.ts`）にだけ依存する。将来Workers+R2へ差し替えても画面は変更しない。
 - 文面生成は `LetterGenerator` 抽象（`src/letter/generator.ts`）にだけ依存する。MVPはテンプレート式。LLM実装は将来の差し替え先で、MVPでは作らない。
-- 写真は端末内でDataURL化しlocalStorageに保存する（1通あたり合計2MB上限）。`otegami.letters.v1` 以外の永続化はしない。
+- 写真は端末内でDataURL化しlocalStorageに保存する（1通あたり合計2MB上限）。`magocoro.letters.v1` 以外の永続化はしない。
 
 ## Working rules
 

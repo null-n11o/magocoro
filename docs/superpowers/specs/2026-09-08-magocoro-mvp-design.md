@@ -1,8 +1,8 @@
-# おてがみ MVP 設計書（要件・設計）
+# Magocoro MVP 設計書（要件・設計）
 
 - 日付: 2026-09-08（実装: 未着手）
 - 状態: レビュー待ち。新規開発はこの設計を土台にし、変更時はこのファイルを更新する。
-- 上位企画: `docs/PLAN-20260908-300-otegami-growth-share.md`（原本コピー。履歴参照用）
+- 上位企画: `docs/PLAN-20260908-300-magocoro-growth-share.md`（原本コピー。履歴参照用）
 
 ## 1. ゴール
 
@@ -70,5 +70,5 @@
 
 ## 9. 関連ファイル
 
-- 実装計画: `docs/superpowers/plans/2026-09-08-otegami-mvp-implementation.md`（未実施）
-- 上位企画: `docs/PLAN-20260908-300-otegami-growth-share.md`（原本コピー）
+- 実装計画: `docs/superpowers/plans/2026-09-08-magocoro-mvp-implementation.md`（未実施）
+- 上位企画: `docs/PLAN-20260908-300-magocoro-growth-share.md`（原本コピー）

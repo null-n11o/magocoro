@@ -1,4 +1,4 @@
-# おてがみ MVP Implementation Plan
+# Magocoro MVP Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Vite + React + TypeScript + Tailwind + Vitest (+ Testing Library, jsdom, react-router-dom)。サーバDBなし。
 
-**Spec:** `docs/superpowers/specs/2026-09-08-otegami-mvp-design.md` — 実行者はSpecと本計画の両方を読むこと。
+**Spec:** `docs/superpowers/specs/2026-09-08-magocoro-mvp-design.md` — 実行者はSpecと本計画の両方を読むこと。
 
 ## Global Constraints
 
@@ -19,15 +19,15 @@
 - タップ面44px以上。スタンプボタンは `aria-label` と `aria-pressed` を持つ。
 - ページ全体の横スクロール禁止。最大幅モバイルカラム（`max-w-lg`）中央寄せ。
 - 秘密値・外部キーは持たない。外部通信は発生させない（フォントCDNを除く）。
-- 写真合計2MB上限。localStorageのみ永続化（キー `otegami.letters.v1`）。
+- 写真合計2MB上限。localStorageのみ永続化（キー `magocoro.letters.v1`）。
 
 ---
 
 ## File Structure
 
 ```text
-02_dev/otegami/
-  index.html                      # lang="ja"、タイトルおてがみ、Noto Sans JPリンク
+02_dev/magocoro/
+  index.html                      # lang="ja"、タイトルMagocoro、Noto Sans JPリンク
   package.json                    # dev/test/lint/buildスクリプト
   src/
     main.tsx                      # BrowserRouterを起動
@@ -83,7 +83,7 @@ Expected: FAIL（vitest未導入・設定なしのためコマンド失敗）
 
 ```json
 {
-  "name": "otegami",
+  "name": "magocoro",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -153,11 +153,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 
 ```tsx
 export function Routes() {
-  return <div className="mx-auto max-w-lg">おてがみ</div>;
+  return <div className="mx-auto max-w-lg">Magocoro</div>;
 }
 ```
 
-`index.html` は `lang="ja"`、タイトル「おてがみ」、Noto Sans JPのlink、`#root` を持つこと。`src/index.css` は `@tailwind base; @tailwind components; @tailwind utilities;` の3行。
+`index.html` は `lang="ja"`、タイトル「Magocoro」、Noto Sans JPのlink、`#root` を持つこと。`src/index.css` は `@tailwind base; @tailwind components; @tailwind utilities;` の3行。
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -311,7 +311,7 @@ git commit -m "feat: Task 2 文面生成（型＋TemplateLetterGenerator）"
 
 **Interfaces:**
 - Consumes: Task 2の `Letter` / `StampKind` 型
-- Produces: `LetterStore` 抽象（`saveLetter(letter)` / `getLetter(id)` / `addStamp(id, kind)`）、`LocalStorageLetterStore`（キー `otegami.letters.v1`）。Task 4・5が使う。
+- Produces: `LetterStore` 抽象（`saveLetter(letter)` / `getLetter(id)` / `addStamp(id, kind)`）、`LocalStorageLetterStore`（キー `magocoro.letters.v1`）。Task 4・5が使う。
 
 - [ ] **Step 1: Write the failing test**
 
@@ -363,7 +363,7 @@ Expected: FAIL with "Cannot find module '../../src/store/storage'"
 // src/store/storage.ts
 import type { Letter, StampKind } from "../letter/types";
 
-export const STORAGE_KEY = "otegami.letters.v1";
+export const STORAGE_KEY = "magocoro.letters.v1";
 
 export interface LetterStore {
   saveLetter(letter: Letter): void;
@@ -518,7 +518,7 @@ export function ComposePage({ onCreate }: { onCreate?: (id: string) => void } = 
 
   return (
     <main className="mx-auto max-w-lg bg-[#f7f2e9] p-4">
-      <h1 className="text-xl font-bold text-[#33302a]">おてがみをつくる</h1>
+      <h1 className="text-xl font-bold text-[#33302a]">Magocoroをつくる</h1>
       <label className="mt-4 block text-[#33302a]">
         写真（1〜3枚）
         <input type="file" accept="image/*" multiple onChange={(e) => void handleFiles(e.target.files)} />
