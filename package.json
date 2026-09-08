@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
-    "test": "vitest run --config vitest.config.ts",
+    "test": "vitest run --config vitest.config.ts && vitest run --config vitest.worker.config.ts",
     "lint": "npx oxlint@latest src worker tests"
   },
   "dependencies": {
@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.13.0",
+    "@cloudflare/vitest-plugin": "^1.1.5",
     "@cloudflare/workers-types": "^5.20260908.1",
     "@tailwindcss/vite": "^4.1.0",
     "@testing-library/dom": "^10.4.1",
