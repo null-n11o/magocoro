@@ -9,7 +9,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<ComposePage api={api} />} />
-      <Route path="/letter/:id" element={<LetterPage />} />
+      <Route path="/letter/:id" element={<LetterPage api={api} />} />
     </Routes>
   );
 }

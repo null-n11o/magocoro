@@ -33,3 +33,12 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+.stamp-frame {
+  background: #fff;
+  padding: 8px;
+  box-shadow:
+    0 0 0 3px #fff,
+    0 0 0 5px #ddd2c2;
+  border-radius: 2px;
+}

@@ -1,0 +1,89 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { describe, expect, it, vi } from "vitest";
+import type { LetterApi, LetterPublic } from "../../src/api/types";
+import { LetterPage } from "../../src/letter/LetterPage";
+
+const letter: LetterPublic = {
+  id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  createdAt: "2026-09-08T12:00:00.000Z",
+  addressTo: "じいじ、ばあばへ",
+  body: "きょうね、たてたよ",
+  signature: "はると",
+  photoUrls: ["/api/letters/l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/photos/0"],
+  stamps: { read: 0, cute: 2 },
+};
+
+function renderLetter(api: LetterApi, id = letter.id) {
+  return render(
+    <MemoryRouter initialEntries={[`/letter/${id}`]}>
+      <Routes>
+        <Route path="/letter/:id" element={<LetterPage api={api} />} />
+        <Route path="/" element={<p>作る画面</p>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe("LetterPage", () => {
+  it("renders letter content and increments stamps", async () => {
+    const user = userEvent.setup();
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn().mockResolvedValue(letter),
+      addStamp: vi.fn().mockResolvedValue({ read: 1, cute: 2 }),
+    };
+    renderLetter(api);
+    expect(await screen.findByText("じいじ、ばあばへ")).toBeInTheDocument();
+    expect(screen.getByText("きょうね、たてたよ")).toBeInTheDocument();
+    expect(screen.getByText("はると")).toBeInTheDocument();
+    expect(screen.getByText(/2026年9月8日/)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "手紙の写真 1" })).toHaveAttribute(
+      "src",
+      letter.photoUrls[0],
+    );
+    expect(
+      screen.getByText("このリンクをLINEに貼ると、相手のスマホでも開けます"),
+    ).toBeInTheDocument();
+    const read = screen.getByRole("button", { name: "読んだよ" });
+    expect(read).toHaveAttribute("aria-pressed", "false");
+    await user.click(read);
+    expect(api.addStamp).toHaveBeenCalledWith(letter.id, "read");
+    expect(await screen.findByText("1")).toBeInTheDocument();
+    expect(read).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("shows not found for unknown id", async () => {
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn().mockResolvedValue(null),
+      addStamp: vi.fn(),
+    };
+    renderLetter(api, "l_dddddddddddddddddddddddddddddddd");
+    expect(await screen.findByText("お手紙が見つからない")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "お手紙をつくる" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+  });
+
+  it("copies the current url", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn().mockResolvedValue(letter),
+      addStamp: vi.fn(),
+    };
+    renderLetter(api);
+    await screen.findByText("じいじ、ばあばへ");
+    await user.click(screen.getByRole("button", { name: "リンクをコピー" }));
+    expect(writeText).toHaveBeenCalled();
+    expect(await screen.findByText("コピーしました")).toBeInTheDocument();
+  });
+});
