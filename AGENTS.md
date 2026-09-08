@@ -5,7 +5,7 @@
 ## 設計書（読む順）
 
 1. `docs/superpowers/specs/2026-09-08-magocoro-web-letter-design.md`（要件・設計の正本。自己完結）
-2. 実装計画は未作成。仕様承認後に `docs/superpowers/plans/` へ置く
+2. 実装計画: `docs/superpowers/plans/2026-09-08-magocoro-web-letter.md`
 3. `docs/PLAN-20260908-300-magocoro-growth-share.md`（着想メモ。本仕様の制約源ではない）
 4. 新規開発の要件・計画は `docs/superpowers/specs/` と `docs/superpowers/plans/` に置く。作り方は「開発フロー」参照。
 5. 旧下書き（使わない）: `docs/superpowers/specs/2026-09-08-magocoro-mvp-design.md` / `docs/superpowers/plans/2026-09-08-magocoro-mvp-implementation.md`
