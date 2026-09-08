@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  --color-page: #f7f2e9;
+  --color-surface: #fffdf8;
+  --color-ink: #33302a;
+  --color-muted: #8a7f72;
+  --color-line: #ddd2c2;
+  --color-accent: #c4543a;
+  --font-sans: "Noto Sans JP", sans-serif;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
