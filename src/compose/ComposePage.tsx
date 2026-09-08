@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { LetterApi } from "../api/types";
 
@@ -14,6 +14,15 @@ export function ComposePage({ api }: { api: LetterApi }) {
   const [photoError, setPhotoError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+
+  useEffect(() => {
+    const urls = photos.map((file) => URL.createObjectURL(file));
+    setPhotoUrls(urls);
+    return () => {
+      for (const url of urls) URL.revokeObjectURL(url);
+    };
+  }, [photos]);
 
   const reason = useMemo(() => {
     if (photos.length < 1) return "写真を1枚以上えらんでください";
@@ -82,7 +91,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
             {photos.map((file, i) => (
               <img
                 key={`${file.name}-${i}`}
-                src={URL.createObjectURL(file)}
+                src={photoUrls[i] ?? ""}
                 alt=""
                 className="h-20 w-20 object-cover"
               />
