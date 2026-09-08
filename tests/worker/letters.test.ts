@@ -1,6 +1,6 @@
 import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { createLetter } from "../../worker/store";
+import { addStamp, createLetter } from "../../worker/store";
 
 function photo(type: string, size: number, name: string): File {
   return new File([new Uint8Array(size)], name, { type });
@@ -46,6 +46,7 @@ describe("letters api", () => {
     );
     expect(img.status).toBe(200);
     expect(img.headers.get("content-type")).toBe("image/jpeg");
+    expect(img.headers.get("x-content-type-options")).toBe("nosniff");
 
     const stamped = await exports.default.fetch(
       new Request(`http://example.com/api/letters/${id}/stamps`, {
@@ -182,5 +183,28 @@ describe("letters api", () => {
       ),
     );
     expect(missing.status).toBe(404);
+  });
+
+  it("reports unavailable when persisting a stamp fails", async () => {
+    const id = "l_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    const record = {
+      id,
+      createdAt: "2026-09-08T12:00:00.000Z",
+      addressTo: "じいじ、ばあばへ",
+      body: "きょうね、たてたよ",
+      signature: "はると",
+      photos: [{ contentType: "image/jpeg" }],
+      stamps: { read: 0, cute: 0 },
+    };
+    const bucket = {
+      async get() {
+        return { text: async () => JSON.stringify(record) };
+      },
+      async put() {
+        throw new Error("write failed");
+      },
+    } as unknown as R2Bucket;
+
+    await expect(addStamp({ LETTERS: bucket }, id, "read")).resolves.toBe("unavailable");
   });
 });

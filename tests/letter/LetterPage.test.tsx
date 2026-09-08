@@ -54,6 +54,19 @@ describe("LetterPage", () => {
     expect(read).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("uses the Japan date for a JST morning postmark", async () => {
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn().mockResolvedValue({
+        ...letter,
+        createdAt: "2026-09-07T15:30:00.000Z",
+      }),
+      addStamp: vi.fn(),
+    };
+    renderLetter(api);
+    expect(await screen.findByText("2026年9月8日")).toBeInTheDocument();
+  });
+
   it("shows not found for unknown id", async () => {
     const api: LetterApi = {
       createLetter: vi.fn(),
@@ -80,6 +93,20 @@ describe("LetterPage", () => {
     await user.click(screen.getByRole("button", { name: "読んだよ" }));
     expect(await screen.findByText("お手紙が見つからない")).toBeInTheDocument();
     expect(screen.queryByText("きょうね、たてたよ")).not.toBeInTheDocument();
+  });
+
+  it("keeps the letter visible when adding a stamp fails", async () => {
+    const user = userEvent.setup();
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn().mockResolvedValue(letter),
+      addStamp: vi.fn().mockRejectedValue(new Error("unavailable")),
+    };
+    renderLetter(api);
+    await screen.findByText("じいじ、ばあばへ");
+    await user.click(screen.getByRole("button", { name: "読んだよ" }));
+    expect(await screen.findByText("いま反応を送れません")).toBeInTheDocument();
+    expect(screen.getByText("きょうね、たてたよ")).toBeInTheDocument();
   });
 
   it("shows not found when getLetter rejects", async () => {
@@ -113,5 +140,25 @@ describe("LetterPage", () => {
     await user.click(screen.getByRole("button", { name: "リンクをコピー" }));
     expect(writeText).toHaveBeenCalled();
     expect(await screen.findByText("コピーしました")).toBeInTheDocument();
+  });
+
+  it("shows a selectable URL when copying fails", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+      configurable: true,
+    });
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn().mockResolvedValue(letter),
+      addStamp: vi.fn(),
+    };
+    renderLetter(api);
+    await screen.findByText("じいじ、ばあばへ");
+    await user.click(screen.getByRole("button", { name: "リンクをコピー" }));
+    expect(
+      await screen.findByText("コピーできませんでした。下のURLを長押ししてコピーしてください"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(window.location.href)).toBeInTheDocument();
   });
 });

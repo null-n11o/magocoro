@@ -65,4 +65,42 @@ describe("ComposePage", () => {
     expect(await screen.findByText("いま保存できません")).toBeInTheDocument();
     expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
   });
+
+  it("rejects unsupported photo types without losing other inputs", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn(),
+      addStamp: vi.fn(),
+    };
+    renderCompose(api);
+    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+    await user.type(screen.getByLabelText("署名"), "はると");
+    await user.upload(
+      screen.getByLabelText("写真"),
+      new File(["text"], "a.txt", { type: "text/plain" }),
+    );
+    expect(await screen.findByText("この写真は使えません")).toBeInTheDocument();
+    expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
+    expect(screen.getByLabelText("署名")).toHaveValue("はると");
+  });
+
+  it("rejects photos larger than 2MB without losing other inputs", async () => {
+    const user = userEvent.setup();
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn(),
+      addStamp: vi.fn(),
+    };
+    renderCompose(api);
+    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+    await user.type(screen.getByLabelText("署名"), "はると");
+    await user.upload(
+      screen.getByLabelText("写真"),
+      new File([new Uint8Array(2 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" }),
+    );
+    expect(await screen.findByText("写真が大きすぎます")).toBeInTheDocument();
+    expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
+    expect(screen.getByLabelText("署名")).toHaveValue("はると");
+  });
 });

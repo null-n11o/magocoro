@@ -167,7 +167,7 @@ export async function addStamp(
   env: Env,
   id: string,
   kind: string,
-): Promise<{ stamps: Stamps } | "not_found" | "bad_kind"> {
+): Promise<{ stamps: Stamps } | "not_found" | "bad_kind" | "unavailable"> {
   if (!isStampKind(kind)) return "bad_kind";
   const record = await getLetter(env, id);
   if (!record) return "not_found";
@@ -177,7 +177,7 @@ export async function addStamp(
       httpMetadata: { contentType: "application/json" },
     });
   } catch {
-    return "not_found";
+    return "unavailable";
   }
   return { stamps: record.stamps };
 }

@@ -44,7 +44,10 @@ export default {
       const photo = await getPhoto(env, id, n);
       if (!photo) return notFound();
       return new Response(photo.bytes, {
-        headers: { "content-type": photo.contentType },
+        headers: {
+          "content-type": photo.contentType,
+          "x-content-type-options": "nosniff",
+        },
       });
     }
 
@@ -61,6 +64,9 @@ export default {
         return Response.json({ error: "invalid_input" }, { status: 400 });
       }
       if (result === "not_found") return notFound();
+      if (result === "unavailable") {
+        return Response.json({ error: "unavailable" }, { status: 503 });
+      }
       return Response.json({ stamps: result.stamps });
     }
 

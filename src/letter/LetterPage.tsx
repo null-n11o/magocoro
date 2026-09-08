@@ -3,14 +3,23 @@ import { Link, useParams } from "react-router-dom";
 import type { LetterApi, LetterPublic, StampKind } from "../api/types";
 
 function postmark(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(new Date(iso));
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}年${value("month")}月${value("day")}日`;
 }
 
 export function LetterPage({ api }: { api: LetterApi }) {
   const { id = "" } = useParams();
   const [letter, setLetter] = useState<LetterPublic | null | undefined>(undefined);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const [stampError, setStampError] = useState(false);
   const [pressed, setPressed] = useState({ read: false, cute: false });
 
   useEffect(() => {
@@ -30,18 +39,29 @@ export function LetterPage({ api }: { api: LetterApi }) {
 
   async function onStamp(kind: StampKind) {
     if (!letter) return;
-    const stamps = await api.addStamp(letter.id, kind);
-    if (!stamps) {
-      setLetter(null);
-      return;
+    setStampError(false);
+    try {
+      const stamps = await api.addStamp(letter.id, kind);
+      if (!stamps) {
+        setLetter(null);
+        return;
+      }
+      setLetter({ ...letter, stamps });
+      setPressed((prev) => ({ ...prev, [kind]: true }));
+    } catch {
+      setStampError(true);
     }
-    setLetter({ ...letter, stamps });
-    setPressed((prev) => ({ ...prev, [kind]: true }));
   }
 
   async function onCopy() {
-    await navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setCopyFailed(false);
+    } catch {
+      setCopied(false);
+      setCopyFailed(true);
+    }
   }
 
   if (letter === undefined) {
@@ -88,6 +108,12 @@ export function LetterPage({ api }: { api: LetterApi }) {
         リンクをコピー
       </button>
       {copied ? <p className="mt-2 text-sm text-muted">コピーしました</p> : null}
+      {copyFailed ? (
+        <div className="mt-2 text-sm text-muted">
+          <p>コピーできませんでした。下のURLを長押ししてコピーしてください</p>
+          <p className="mt-1 break-all select-text">{window.location.href}</p>
+        </div>
+      ) : null}
       <div className="mt-6 flex gap-3">
         <button
           type="button"
@@ -108,6 +134,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
           かわいい！ <span>{letter.stamps.cute}</span>
         </button>
       </div>
+      {stampError ? <p className="mt-2 text-sm text-accent">いま反応を送れません</p> : null}
     </main>
   );
 }
