@@ -1,0 +1,16 @@
+# Node / Vite
+node_modules/
+dist/
+*.local
+
+# Env (secrets are never committed)
+.env
+.env.*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
