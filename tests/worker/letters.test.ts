@@ -1,5 +1,6 @@
 import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
+import { createLetter } from "../../worker/store";
 
 function photo(type: string, size: number, name: string): File {
   return new File([new Uint8Array(size)], name, { type });
@@ -96,6 +97,19 @@ describe("letters api", () => {
     expect(bigRes.status).toBe(400);
   });
 
+  it("returns invalid_input for a non-multipart create request", async () => {
+    const res = await exports.default.fetch(
+      new Request("http://example.com/api/letters", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "invalid_input" });
+  });
+
   it("returns not_found for unknown id and corrupt json", async () => {
     const missing = await exports.default.fetch(
       new Request("http://example.com/api/letters/l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
@@ -111,6 +125,40 @@ describe("letters api", () => {
       new Request("http://example.com/api/letters/l_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
     );
     expect(corrupt.status).toBe(404);
+
+    await env.LETTERS.put(
+      "letters/l_dddddddddddddddddddddddddddddddd.json",
+      "{}",
+    );
+    const structurallyCorrupt = await exports.default.fetch(
+      new Request("http://example.com/api/letters/l_dddddddddddddddddddddddddddddddd"),
+    );
+    expect(structurallyCorrupt.status).toBe(404);
+    expect(await structurallyCorrupt.json()).toEqual({ error: "not_found" });
+  });
+
+  it("cleans up attempted R2 keys after a failed create", async () => {
+    const deleted: string[] = [];
+    const bucket = {
+      async put(key: string) {
+        if (key.endsWith(".json")) throw new Error("write failed");
+      },
+      async delete(key: string | string[]) {
+        deleted.push(...(Array.isArray(key) ? key : [key]));
+      },
+    } as unknown as R2Bucket;
+    const form = new FormData();
+    form.set("body", "きょうね、たてたよ");
+    form.set("signature", "はると");
+    form.append("photos", photo("image/jpeg", 32, "a.jpg"));
+
+    await expect(createLetter({ LETTERS: bucket }, form)).resolves.toEqual({
+      ok: false,
+      status: 503,
+    });
+    expect(deleted).toHaveLength(2);
+    expect(deleted[0]).toMatch(/^letters\/l_[0-9a-f]{32}\/photo-0$/);
+    expect(deleted[1]).toMatch(/^letters\/l_[0-9a-f]{32}\.json$/);
   });
 
   it("rejects unknown stamp kind and missing letter stamps", async () => {

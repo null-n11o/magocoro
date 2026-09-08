@@ -14,7 +14,12 @@ export default {
     }
 
     if (request.method === "POST" && parts.length === 2) {
-      const form = await request.formData();
+      let form: FormData;
+      try {
+        form = await request.formData();
+      } catch {
+        return Response.json({ error: "invalid_input" }, { status: 400 });
+      }
       const result = await createLetter(env, form);
       if (!result.ok) {
         return Response.json(

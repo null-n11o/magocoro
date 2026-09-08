@@ -40,6 +40,38 @@ function isStampKind(kind: string): kind is StampKind {
   return kind === "read" || kind === "cute";
 }
 
+function isLetterRecord(value: unknown, id: string): value is LetterRecord {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Partial<LetterRecord>;
+  return (
+    record.id === id &&
+    typeof record.createdAt === "string" &&
+    typeof record.addressTo === "string" &&
+    record.addressTo.length > 0 &&
+    typeof record.body === "string" &&
+    record.body.length >= 1 &&
+    record.body.length <= 1000 &&
+    typeof record.signature === "string" &&
+    record.signature.length >= 1 &&
+    record.signature.length <= 20 &&
+    Array.isArray(record.photos) &&
+    record.photos.length >= 1 &&
+    record.photos.length <= 3 &&
+    record.photos.every(
+      (photo) =>
+        typeof photo === "object" &&
+        photo !== null &&
+        ALLOWED_TYPES.has((photo as { contentType?: unknown }).contentType as string),
+    ) &&
+    typeof record.stamps === "object" &&
+    record.stamps !== null &&
+    Number.isInteger(record.stamps.read) &&
+    record.stamps.read >= 0 &&
+    Number.isInteger(record.stamps.cute) &&
+    record.stamps.cute >= 0
+  );
+}
+
 export function toPublic(record: LetterRecord): LetterPublic {
   return {
     ...record,
@@ -67,6 +99,7 @@ export async function createLetter(
   }
 
   const id = newId();
+  const keysToCleanup: string[] = [];
   const record: LetterRecord = {
     id,
     createdAt: new Date().toISOString(),
@@ -79,14 +112,25 @@ export async function createLetter(
 
   try {
     for (const [n, file] of photos.entries()) {
-      await env.LETTERS.put(photoKey(id, n), await file.arrayBuffer(), {
+      const key = photoKey(id, n);
+      keysToCleanup.push(key);
+      await env.LETTERS.put(key, await file.arrayBuffer(), {
         httpMetadata: { contentType: file.type },
       });
     }
-    await env.LETTERS.put(jsonKey(id), JSON.stringify(record), {
+    const key = jsonKey(id);
+    keysToCleanup.push(key);
+    await env.LETTERS.put(key, JSON.stringify(record), {
       httpMetadata: { contentType: "application/json" },
     });
   } catch {
+    for (const key of keysToCleanup) {
+      try {
+        await env.LETTERS.delete(key);
+      } catch {
+        // A cleanup failure must not mask the unavailable response.
+      }
+    }
     return { ok: false, status: 503 };
   }
   return { ok: true, id };
@@ -97,7 +141,8 @@ export async function getLetter(env: Env, id: string): Promise<LetterRecord | nu
   const obj = await env.LETTERS.get(jsonKey(id));
   if (!obj) return null;
   try {
-    return JSON.parse(await obj.text()) as LetterRecord;
+    const record: unknown = JSON.parse(await obj.text());
+    return isLetterRecord(record, id) ? record : null;
   } catch {
     return null;
   }
