@@ -68,6 +68,34 @@ describe("LetterPage", () => {
     );
   });
 
+  it("shows not found when addStamp returns null", async () => {
+    const user = userEvent.setup();
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn().mockResolvedValue(letter),
+      addStamp: vi.fn().mockResolvedValue(null),
+    };
+    renderLetter(api);
+    await screen.findByText("じいじ、ばあばへ");
+    await user.click(screen.getByRole("button", { name: "読んだよ" }));
+    expect(await screen.findByText("お手紙が見つからない")).toBeInTheDocument();
+    expect(screen.queryByText("きょうね、たてたよ")).not.toBeInTheDocument();
+  });
+
+  it("shows not found when getLetter rejects", async () => {
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn().mockRejectedValue(new Error("network")),
+      addStamp: vi.fn(),
+    };
+    renderLetter(api);
+    expect(await screen.findByText("お手紙が見つからない")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "お手紙をつくる" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+  });
+
   it("copies the current url", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);

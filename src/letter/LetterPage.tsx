@@ -15,9 +15,14 @@ export function LetterPage({ api }: { api: LetterApi }) {
 
   useEffect(() => {
     let cancelled = false;
-    api.getLetter(id).then((value) => {
-      if (!cancelled) setLetter(value);
-    });
+    api
+      .getLetter(id)
+      .then((value) => {
+        if (!cancelled) setLetter(value);
+      })
+      .catch(() => {
+        if (!cancelled) setLetter(null);
+      });
     return () => {
       cancelled = true;
     };
@@ -26,7 +31,10 @@ export function LetterPage({ api }: { api: LetterApi }) {
   async function onStamp(kind: StampKind) {
     if (!letter) return;
     const stamps = await api.addStamp(letter.id, kind);
-    if (!stamps) return;
+    if (!stamps) {
+      setLetter(null);
+      return;
+    }
     setLetter({ ...letter, stamps });
     setPressed((prev) => ({ ...prev, [kind]: true }));
   }
