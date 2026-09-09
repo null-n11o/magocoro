@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import type { LetterApi, LetterPublic, StampKind } from "../api/types";
 import botanicalSprig from "../assets/botanical-sprig.png";
+
+type LetterLocationState = {
+  fromCompose?: boolean;
+};
 
 function postmark(iso: string): string {
   const parts = new Intl.DateTimeFormat("ja-JP", {
@@ -17,6 +21,8 @@ function postmark(iso: string): string {
 
 export function LetterPage({ api }: { api: LetterApi }) {
   const { id = "" } = useParams();
+  const location = useLocation();
+  const isSender = (location.state as LetterLocationState | null)?.fromCompose === true;
   const [letter, setLetter] = useState<LetterPublic | null | undefined>(undefined);
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -111,7 +117,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
               {postmark(letter.createdAt)}
             </time>
           </div>
-          <p className="letter-kicker">家族のアルバムに届きました</p>
+          <p className="letter-kicker">お孫さんからのお手紙です</p>
         </header>
 
         <article className="letter-paper" aria-label="お手紙">
@@ -132,19 +138,21 @@ export function LetterPage({ api }: { api: LetterApi }) {
           <p className="letter-signature">{letter.signature}</p>
         </article>
 
-        <section className="share-section" aria-label="手紙を共有する">
-          <p className="share-note">このリンクをLINEに貼ると、相手のスマホでも開けます</p>
-          <button type="button" onClick={onCopy} className="secondary-button">
-            リンクをコピー
-          </button>
-          {copied ? <p className="feedback-copy">コピーしました</p> : null}
-          {copyFailed ? (
-            <div className="copy-error">
-              <p>コピーできませんでした。下のURLを長押ししてコピーしてください</p>
-              <p className="copy-url">{window.location.href}</p>
-            </div>
-          ) : null}
-        </section>
+        {isSender ? (
+          <section className="share-section" aria-label="手紙を共有する">
+            <p className="share-note">このリンクをLINEに貼ると、相手のスマホでも開けます</p>
+            <button type="button" onClick={onCopy} className="secondary-button">
+              リンクをコピー
+            </button>
+            {copied ? <p className="feedback-copy">コピーしました</p> : null}
+            {copyFailed ? (
+              <div className="copy-error">
+                <p>コピーできませんでした。下のURLを長押ししてコピーしてください</p>
+                <p className="copy-url">{window.location.href}</p>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="reply-section" aria-labelledby="reply-heading">
           <div className="reply-heading-row">

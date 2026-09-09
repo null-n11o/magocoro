@@ -15,9 +15,15 @@ const letter: LetterPublic = {
   stamps: { read: 0, cute: 2 },
 };
 
-function renderLetter(api: LetterApi, id = letter.id) {
+function renderLetter(
+  api: LetterApi,
+  id = letter.id,
+  state?: { fromCompose?: boolean },
+) {
   return render(
-    <MemoryRouter initialEntries={[`/letter/${id}`]}>
+    <MemoryRouter
+      initialEntries={[{ pathname: `/letter/${id}`, state }]}
+    >
       <Routes>
         <Route path="/letter/:id" element={<LetterPage api={api} />} />
         <Route path="/" element={<p>作る画面</p>} />
@@ -35,14 +41,18 @@ describe("LetterPage", () => {
     };
     renderLetter(api);
 
-    await screen.findByText("家族のアルバムに届きました");
+    await screen.findByText("お孫さんからのお手紙です");
     expect(
       screen.queryByRole("heading", { name: "こんなことがあったよ" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("家族のアルバムに届きました")).toBeInTheDocument();
+    expect(screen.getByText("お孫さんからのお手紙です")).toBeInTheDocument();
     expect(screen.getByRole("article", { name: "お手紙" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "手紙の写真" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "このお手紙に返事をする" })).toBeInTheDocument();
+    expect(
+      screen.queryByText("このリンクをLINEに貼ると、相手のスマホでも開けます"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "リンクをコピー" })).not.toBeInTheDocument();
   });
 
   it("renders letter content and increments stamps", async () => {
@@ -61,9 +71,6 @@ describe("LetterPage", () => {
       "src",
       letter.photoUrls[0],
     );
-    expect(
-      screen.getByText("このリンクをLINEに貼ると、相手のスマホでも開けます"),
-    ).toBeInTheDocument();
     const read = screen.getByRole("button", { name: "読んだよ" });
     expect(read).toHaveAttribute("aria-pressed", "false");
     await user.click(read);
@@ -141,7 +148,7 @@ describe("LetterPage", () => {
     );
   });
 
-  it("copies the current url", async () => {
+  it("shows the share UI after creating a letter", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -153,8 +160,11 @@ describe("LetterPage", () => {
       getLetter: vi.fn().mockResolvedValue(letter),
       addStamp: vi.fn(),
     };
-    renderLetter(api);
+    renderLetter(api, letter.id, { fromCompose: true });
     await screen.findByText("じいじ、ばあばへ");
+    expect(
+      screen.getByText("このリンクをLINEに貼ると、相手のスマホでも開けます"),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "リンクをコピー" }));
     expect(writeText).toHaveBeenCalled();
     expect(await screen.findByText("コピーしました")).toBeInTheDocument();
@@ -171,7 +181,7 @@ describe("LetterPage", () => {
       getLetter: vi.fn().mockResolvedValue(letter),
       addStamp: vi.fn(),
     };
-    renderLetter(api);
+    renderLetter(api, letter.id, { fromCompose: true });
     await screen.findByText("じいじ、ばあばへ");
     await user.click(screen.getByRole("button", { name: "リンクをコピー" }));
     expect(
