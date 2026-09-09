@@ -3,6 +3,7 @@
 source visual truth path: `docs/design-directions/02-family-album.png`
 implementation screenshot path: `docs/design-directions/implementation-family-album.png`
 responsive captures: `docs/design-directions/implementation-family-album-desktop-before.png`, `docs/design-directions/implementation-family-album-desktop-after.png`, `docs/design-directions/implementation-family-album-tablet-after.png`, `docs/design-directions/implementation-family-album-mobile-after.png`
+copy verification captures: `docs/design-directions/implementation-family-album-desktop-copy-final.png`, `docs/design-directions/implementation-family-album-mobile-copy-final.png`
 viewport: source image is 853 x 1844 pixels; captures cover 1440 x 900, 1024 x 768, and 390 x 844 CSS viewports
 state: `/` compose screen, initial empty state
 
@@ -28,6 +29,12 @@ Focused region comparison: completed for the header, photo picker, form fields, 
   Impact: the reference's selected-photo collage state is not represented by this capture because no files are selected.
   Follow-up: capture the same screen after selecting 1–3 photos when a file-upload-capable browser runner is available.
 
+- [P2] The shared compose and letter screens now use the same child-voice heading.
+  Location: `/` compose screen and `/letter/:id` shared letter screen.
+  Evidence: the copy verification captures show `きょうねこんなことがあったよ`; the component tests assert the same heading in both flows.
+  Fix status: verified.
+  Commit: `6f37b5d`.
+
 ## Automated checks
 
 - `npm test`: passed (24 tests)
@@ -44,5 +51,6 @@ No P0/P1/P2 visual iteration was run because the first comparison was blocked be
 - [x] Preserve the existing create, copy, stamp, validation, and error behaviors.
 - [x] Capture the rendered implementation and run the visual comparison.
 - [x] Verify the desktop layout after correcting the title wrapping.
+- [x] Verify the child-voice heading on compose and shared letter screens.
 
 final result: passed with follow-up for selected-photo state
