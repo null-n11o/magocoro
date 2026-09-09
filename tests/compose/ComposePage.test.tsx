@@ -21,6 +21,23 @@ function renderCompose(api: LetterApi) {
 }
 
 describe("ComposePage", () => {
+  it("frames the form as a family album letter", () => {
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn(),
+      addStamp: vi.fn(),
+    };
+    renderCompose(api);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "今日のひとこまを、おじいちゃんとおばあちゃんへ",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("写真は1〜3枚まで。1枚2MBまで")).toBeInTheDocument();
+    expect(screen.getByText("つながる、家族のアルバム")).toBeInTheDocument();
+  });
+
   it("keeps submit disabled without photo, body, or signature", async () => {
     const api: LetterApi = {
       createLetter: vi.fn(),

@@ -27,6 +27,19 @@ function renderLetter(api: LetterApi, id = letter.id) {
 }
 
 describe("LetterPage", () => {
+  it("presents the shared letter as a family photo letter", async () => {
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn().mockResolvedValue(letter),
+      addStamp: vi.fn(),
+    };
+    renderLetter(api);
+
+    expect(await screen.findByRole("heading", { name: "今日のひとこま" })).toBeInTheDocument();
+    expect(screen.getByText("家族のアルバムに届きました")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "このお手紙に返事をする" })).toBeInTheDocument();
+  });
+
   it("renders letter content and increments stamps", async () => {
     const user = userEvent.setup();
     const api: LetterApi = {
