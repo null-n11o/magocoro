@@ -1,12 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { LetterApi } from "../../src/api/types";
 import { ComposePage } from "../../src/compose/ComposePage";
 
-function jpeg(): File {
-  return new File([new Uint8Array(8)], "a.jpg", { type: "image/jpeg" });
+function jpeg(name = "a.jpg"): File {
+  return new File([new Uint8Array(8)], name, { type: "image/jpeg" });
 }
 
 function renderCompose(api: LetterApi) {
@@ -135,5 +135,99 @@ describe("ComposePage", () => {
     );
 
     expect(screen.queryByText("写真が大きすぎます")).not.toBeInTheDocument();
+  });
+
+  it("deletes a selected photo before saving", async () => {
+    const user = userEvent.setup();
+    const files = [jpeg("a.jpg"), jpeg("b.jpg")];
+    const api: LetterApi = {
+      createLetter: vi.fn().mockResolvedValue({ id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }),
+      getLetter: vi.fn(),
+      addStamp: vi.fn(),
+    };
+    renderCompose(api);
+    await user.upload(screen.getByLabelText("写真"), files);
+    await user.click(screen.getByRole("button", { name: "写真1を削除" }));
+    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+    await user.type(screen.getByLabelText("署名"), "はると");
+    await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
+
+    expect(api.createLetter).toHaveBeenCalledWith({
+      photos: [files[1]],
+      addressTo: "じいじ、ばあばへ",
+      body: "きょうね、たてたよ",
+      signature: "はると",
+    });
+  });
+
+  it("reorders selected photos with a touch drag before saving", async () => {
+    const user = userEvent.setup();
+    const files = [jpeg("a.jpg"), jpeg("b.jpg"), jpeg("c.jpg")];
+    const api: LetterApi = {
+      createLetter: vi.fn().mockResolvedValue({ id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }),
+      getLetter: vi.fn(),
+      addStamp: vi.fn(),
+    };
+    renderCompose(api);
+    await user.upload(screen.getByLabelText("写真"), files);
+
+    const handle = screen.getByRole("button", { name: "写真1を並べ替え" });
+    const thirdCard = screen
+      .getByRole("button", { name: "写真3を削除" })
+      .closest("[data-photo-index]");
+    expect(thirdCard).not.toBeNull();
+    const originalElementFromPoint = (
+      document as Document & {
+        elementFromPoint?: (x: number, y: number) => Element | null;
+      }
+    ).elementFromPoint;
+    const elementFromPoint = vi.fn().mockReturnValue(thirdCard as HTMLElement);
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPoint,
+    });
+
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 1, pointerType: "touch" });
+    fireEvent.pointerMove(handle, { clientX: 10, clientY: 10, pointerId: 1, pointerType: "touch" });
+    fireEvent.pointerUp(handle, { clientX: 10, clientY: 10, pointerId: 1, pointerType: "touch" });
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: originalElementFromPoint,
+    });
+
+    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+    await user.type(screen.getByLabelText("署名"), "はると");
+    await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
+
+    expect(api.createLetter).toHaveBeenCalledWith({
+      photos: [files[1], files[2], files[0]],
+      addressTo: "じいじ、ばあばへ",
+      body: "きょうね、たてたよ",
+      signature: "はると",
+    });
+  });
+
+  it("reorders selected photos with the arrow keys", async () => {
+    const user = userEvent.setup();
+    const files = [jpeg("a.jpg"), jpeg("b.jpg")];
+    const api: LetterApi = {
+      createLetter: vi.fn().mockResolvedValue({ id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }),
+      getLetter: vi.fn(),
+      addStamp: vi.fn(),
+    };
+    renderCompose(api);
+    await user.upload(screen.getByLabelText("写真"), files);
+    await user.click(screen.getByRole("button", { name: "写真1を並べ替え" }));
+    await user.keyboard("{ArrowRight}");
+    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+    await user.type(screen.getByLabelText("署名"), "はると");
+    await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
+
+    expect(api.createLetter).toHaveBeenCalledWith({
+      photos: [files[1], files[0]],
+      addressTo: "じいじ、ばあばへ",
+      body: "きょうね、たてたよ",
+      signature: "はると",
+    });
   });
 });

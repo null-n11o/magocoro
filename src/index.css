@@ -232,12 +232,70 @@ button {
   margin-top: 1rem;
 }
 
+.photo-card {
+  position: relative;
+  min-width: 0;
+}
+
+.photo-card.is-dragging {
+  opacity: 0.55;
+}
+
+.photo-card.is-drag-over {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 0.2rem;
+}
+
 .photo-preview {
+  display: block;
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
   border: 0.45rem solid #fff;
   box-shadow: 0 0 0 1px var(--color-line);
+}
+
+.photo-actions {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+  display: flex;
+  gap: 0.35rem;
+}
+
+.photo-action {
+  display: inline-grid;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: rgb(255 253 248 / 0.94);
+  box-shadow: 0 0.15rem 0.4rem rgb(51 48 42 / 0.12);
+  color: var(--color-ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.photo-action:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.photo-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.photo-drag-handle:active {
+  cursor: grabbing;
+}
+
+.photo-remove-button {
+  color: var(--color-accent);
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 .photo-grid.photo-count-1,
@@ -255,8 +313,11 @@ button {
   grid-template-rows: repeat(2, minmax(5.5rem, 1fr));
 }
 
-.photo-grid.photo-count-3 .photo-preview:first-child {
+.photo-grid.photo-count-3 .photo-card:first-child {
   grid-row: span 2;
+}
+
+.photo-grid.photo-count-3 .photo-card:first-child .photo-preview {
   aspect-ratio: 0.82;
 }
 
@@ -349,6 +410,7 @@ button {
 .primary-button:focus-visible,
 .secondary-button:focus-visible,
 .stamp-button:focus-visible,
+.photo-action:focus-visible,
 .text-link:focus-visible,
 .photo-picker:focus-visible {
   outline: 3px solid rgb(196 84 58 / 0.35);
