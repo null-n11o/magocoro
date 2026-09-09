@@ -138,7 +138,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
     setSaveError("");
     try {
       const { id } = await api.createLetter({ photos, addressTo, body, signature });
-      navigate(`/letter/${id}`);
+      navigate(`/letter/${id}`, { state: { fromCompose: true } });
     } catch {
       setSaveError("いま保存できません");
     } finally {
