@@ -35,11 +35,11 @@ describe("LetterPage", () => {
     };
     renderLetter(api);
 
-    await screen.findByText("家族のアルバムに届きました");
+    await screen.findByText("お孫さんからのお手紙です");
     expect(
       screen.queryByRole("heading", { name: "こんなことがあったよ" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("家族のアルバムに届きました")).toBeInTheDocument();
+    expect(screen.getByText("お孫さんからのお手紙です")).toBeInTheDocument();
     expect(screen.getByRole("article", { name: "お手紙" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "手紙の写真" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "このお手紙に返事をする" })).toBeInTheDocument();

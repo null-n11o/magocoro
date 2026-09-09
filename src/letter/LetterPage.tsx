@@ -111,7 +111,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
               {postmark(letter.createdAt)}
             </time>
           </div>
-          <p className="letter-kicker">家族のアルバムに届きました</p>
+          <p className="letter-kicker">お孫さんからのお手紙です</p>
         </header>
 
         <article className="letter-paper" aria-label="お手紙">
