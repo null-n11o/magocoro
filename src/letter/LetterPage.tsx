@@ -101,9 +101,12 @@ export function LetterPage({ api }: { api: LetterApi }) {
         className="botanical botanical-bottom"
       />
       <div className="page-column">
-        <header className="letter-header">
+        <header className="letter-header" aria-label="便箋のヘッダー">
           <div className="letter-meta">
-            <p className="wordmark">Magocoro</p>
+            <div className="brand-lockup">
+              <p className="wordmark">Magocoro</p>
+              <span className="brand-wave" aria-hidden="true" />
+            </div>
             <time className="postmark" dateTime={letter.createdAt}>
               {postmark(letter.createdAt)}
             </time>
@@ -111,16 +114,18 @@ export function LetterPage({ api }: { api: LetterApi }) {
           <p className="letter-kicker">家族のアルバムに届きました</p>
         </header>
 
-        <article className="letter-paper">
-          <div className={`letter-photo-grid photo-count-${letter.photoUrls.length}`}>
-          {letter.photoUrls.map((src, n) => (
-            <img
-              key={src}
-              src={src}
-              alt={`手紙の写真 ${n + 1}`}
-              className="stamp-frame letter-photo"
-            />
-          ))}
+        <article className="letter-paper" aria-label="お手紙">
+          <div className="letter-photo-mat" role="group" aria-label="手紙の写真">
+            <div className={`letter-photo-grid photo-count-${letter.photoUrls.length}`}>
+              {letter.photoUrls.map((src, n) => (
+                <img
+                  key={src}
+                  src={src}
+                  alt={`手紙の写真 ${n + 1}`}
+                  className="stamp-frame letter-photo"
+                />
+              ))}
+            </div>
           </div>
           <p className="letter-address">{letter.addressTo}</p>
           <p className="letter-body">{letter.body}</p>

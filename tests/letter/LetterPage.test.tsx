@@ -40,6 +40,8 @@ describe("LetterPage", () => {
       screen.queryByRole("heading", { name: "こんなことがあったよ" }),
     ).not.toBeInTheDocument();
     expect(screen.getByText("家族のアルバムに届きました")).toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "お手紙" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "手紙の写真" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "このお手紙に返事をする" })).toBeInTheDocument();
   });
 

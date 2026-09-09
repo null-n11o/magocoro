@@ -34,6 +34,8 @@ describe("ComposePage", () => {
         name: "こんなことがあったよ",
       }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("banner", { name: "便箋のヘッダー" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "写真を飾る" })).toBeInTheDocument();
     expect(screen.getByText("写真は1〜3枚まで。1枚10MBまで")).toBeInTheDocument();
     expect(screen.getByText("つながる、家族のアルバム")).toBeInTheDocument();
   });
