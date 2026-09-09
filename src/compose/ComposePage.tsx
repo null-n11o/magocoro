@@ -156,8 +156,12 @@ export function ComposePage({ api }: { api: LetterApi }) {
         className="botanical botanical-bottom"
       />
       <div className="page-column">
-        <header className="compose-header">
-          <h1 className="wordmark">Magocoro</h1>
+        <header className="compose-header" aria-label="便箋のヘッダー">
+          <div className="brand-lockup">
+            <h1 className="wordmark">Magocoro</h1>
+            <span className="brand-wave" aria-hidden="true" />
+          </div>
+          <span className="compose-seal" aria-hidden="true" />
           <h2 className="compose-title">こんなことがあったよ</h2>
         </header>
 
@@ -172,55 +176,61 @@ export function ComposePage({ api }: { api: LetterApi }) {
               </div>
               <span className="section-count">{photos.length}/3</span>
             </div>
-            {photos.length > 0 ? (
-              <div className={`photo-grid photo-count-${photos.length}`} aria-label="選んだ写真">
-                {photos.map((file, i) => (
-                  <div
-                    key={`${file.name}-${i}`}
-                    className={[
-                      "photo-card",
-                      draggingIndex === i ? "is-dragging" : "",
-                      dragOverIndex === i && draggingIndex !== i ? "is-drag-over" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    data-photo-index={i}
-                  >
-                    <img
-                      src={photoUrls[i]}
-                      alt={`選んだ写真 ${i + 1}`}
-                      className="photo-preview"
-                    />
-                    <div className="photo-actions">
-                      <button
-                        type="button"
-                        className="photo-action photo-drag-handle"
-                        aria-label={`写真${i + 1}を並べ替え`}
-                        onPointerDown={(event) => onPhotoPointerDown(i, event)}
-                        onPointerMove={(event) => onPhotoPointerMove(i, event)}
-                        onPointerUp={(event) => endPhotoPointerDrag(i, event)}
-                        onPointerCancel={(event) => cancelPhotoPointerDrag(i, event)}
-                        onKeyDown={(event) => onPhotoHandleKeyDown(i, event)}
-                      >
-                        移動
-                      </button>
-                      <button
-                        type="button"
-                        className="photo-action photo-remove-button"
-                        aria-label={`写真${i + 1}を削除`}
-                        onClick={() => removePhoto(i)}
-                      >
-                        ×
-                      </button>
+            <div
+              className={`photo-mat ${photos.length > 0 ? "has-photos" : ""}`}
+              role="group"
+              aria-label="写真を飾る"
+            >
+              {photos.length > 0 ? (
+                <div className={`photo-grid photo-count-${photos.length}`} aria-label="選んだ写真">
+                  {photos.map((file, i) => (
+                    <div
+                      key={`${file.name}-${i}`}
+                      className={[
+                        "photo-card",
+                        draggingIndex === i ? "is-dragging" : "",
+                        dragOverIndex === i && draggingIndex !== i ? "is-drag-over" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      data-photo-index={i}
+                    >
+                      <img
+                        src={photoUrls[i]}
+                        alt={`選んだ写真 ${i + 1}`}
+                        className="photo-preview"
+                      />
+                      <div className="photo-actions">
+                        <button
+                          type="button"
+                          className="photo-action photo-drag-handle"
+                          aria-label={`写真${i + 1}を並べ替え`}
+                          onPointerDown={(event) => onPhotoPointerDown(i, event)}
+                          onPointerMove={(event) => onPhotoPointerMove(i, event)}
+                          onPointerUp={(event) => endPhotoPointerDrag(i, event)}
+                          onPointerCancel={(event) => cancelPhotoPointerDrag(i, event)}
+                          onKeyDown={(event) => onPhotoHandleKeyDown(i, event)}
+                        >
+                          移動
+                        </button>
+                        <button
+                          type="button"
+                          className="photo-action photo-remove-button"
+                          aria-label={`写真${i + 1}を削除`}
+                          onClick={() => removePhoto(i)}
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <label htmlFor="photos" className="photo-picker">
-              <span className="photo-picker-title">写真をえらぶ</span>
-              <span className="photo-picker-detail">JPEG / PNG / WebP</span>
-            </label>
+                  ))}
+                </div>
+              ) : null}
+              <label htmlFor="photos" className="photo-picker">
+                <span className="photo-picker-title">写真をえらぶ</span>
+                <span className="photo-picker-detail">JPEG / PNG / WebP</span>
+              </label>
+            </div>
             <input
               id="photos"
               aria-label="写真"
@@ -236,7 +246,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
           <hr className="album-divider" />
 
           <div className="field-group">
-            <label htmlFor="addressTo" className="field-label">
+            <label htmlFor="addressTo" className="field-label required-label">
               宛名
             </label>
             <input
@@ -249,7 +259,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
 
           <div className="field-group">
             <div className="field-heading-row">
-              <label htmlFor="body" className="field-label">
+              <label htmlFor="body" className="field-label required-label">
                 本文
               </label>
               <span className="field-limit">{body.length}/1000</span>
@@ -266,7 +276,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
           </div>
 
           <div className="field-group">
-            <label htmlFor="signature" className="field-label">
+            <label htmlFor="signature" className="field-label required-label">
               署名
             </label>
             <input
