@@ -29,9 +29,9 @@ Focused region comparison: completed for the header, photo picker, form fields, 
   Impact: the reference's selected-photo collage state is not represented by this capture because no files are selected.
   Follow-up: capture the same screen after selecting 1–3 photos when a file-upload-capable browser runner is available.
 
-- [P2] The shared compose and letter screens now use the same child-voice heading.
+- [P2] The compose screen uses a child-voice heading while the shared letter screen keeps the letter body as its visual focus.
   Location: `/` compose screen and `/letter/:id` shared letter screen.
-  Evidence: the copy verification captures show `きょうねこんなことがあったよ`; the component tests assert the same heading in both flows.
+  Evidence: the copy verification captures show `こんなことがあったよ` on the compose screen; the component tests assert the heading is absent from the shared letter screen.
   Fix status: verified.
   Commit: `6f37b5d`.
 

@@ -31,7 +31,7 @@ describe("ComposePage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "きょうねこんなことがあったよ",
+        name: "こんなことがあったよ",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("写真は1〜3枚まで。1枚2MBまで")).toBeInTheDocument();
