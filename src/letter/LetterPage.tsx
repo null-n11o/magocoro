@@ -109,7 +109,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
             </time>
           </div>
           <p className="letter-kicker">家族のアルバムに届きました</p>
-          <h1 className="letter-title">今日のひとこま</h1>
+          <h1 className="letter-title">きょうねこんなことがあったよ</h1>
         </header>
 
         <article className="letter-paper">

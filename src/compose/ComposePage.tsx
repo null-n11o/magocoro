@@ -80,7 +80,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
       <div className="page-column">
         <header className="compose-header">
           <h1 className="wordmark">Magocoro</h1>
-          <h2 className="compose-title">今日のひとこまを、おじいちゃんとおばあちゃんへ</h2>
+          <h2 className="compose-title">きょうねこんなことがあったよ</h2>
           <p className="compose-lede">写真とことばで、今日の成長を届けます。</p>
         </header>
 

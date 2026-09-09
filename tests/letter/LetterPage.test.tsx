@@ -35,7 +35,9 @@ describe("LetterPage", () => {
     };
     renderLetter(api);
 
-    expect(await screen.findByRole("heading", { name: "今日のひとこま" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "きょうねこんなことがあったよ" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("家族のアルバムに届きました")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "このお手紙に返事をする" })).toBeInTheDocument();
   });
