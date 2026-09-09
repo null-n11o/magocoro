@@ -34,7 +34,7 @@ describe("ComposePage", () => {
         name: "こんなことがあったよ",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("写真は1〜3枚まで。1枚2MBまで")).toBeInTheDocument();
+    expect(screen.getByText("写真は1〜3枚まで。1枚10MBまで")).toBeInTheDocument();
     expect(screen.getByText("つながる、家族のアルバム")).toBeInTheDocument();
   });
 
@@ -102,7 +102,7 @@ describe("ComposePage", () => {
     expect(screen.getByLabelText("署名")).toHaveValue("はると");
   });
 
-  it("rejects photos larger than 2MB without losing other inputs", async () => {
+  it("rejects photos larger than 10MB without losing other inputs", async () => {
     const user = userEvent.setup();
     const api: LetterApi = {
       createLetter: vi.fn(),
@@ -114,10 +114,26 @@ describe("ComposePage", () => {
     await user.type(screen.getByLabelText("署名"), "はると");
     await user.upload(
       screen.getByLabelText("写真"),
-      new File([new Uint8Array(2 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" }),
+      new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" }),
     );
     expect(await screen.findByText("写真が大きすぎます")).toBeInTheDocument();
     expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
     expect(screen.getByLabelText("署名")).toHaveValue("はると");
+  });
+
+  it("accepts a photo up to 10MB", async () => {
+    const user = userEvent.setup();
+    const api: LetterApi = {
+      createLetter: vi.fn(),
+      getLetter: vi.fn(),
+      addStamp: vi.fn(),
+    };
+    renderCompose(api);
+    await user.upload(
+      screen.getByLabelText("写真"),
+      new File([new Uint8Array(10 * 1024 * 1024)], "large.jpg", { type: "image/jpeg" }),
+    );
+
+    expect(screen.queryByText("写真が大きすぎます")).not.toBeInTheDocument();
   });
 });

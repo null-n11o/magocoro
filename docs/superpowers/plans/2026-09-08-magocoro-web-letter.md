@@ -19,7 +19,7 @@
 - タップ面44px以上。スタンプは `aria-label`＋`aria-pressed`。
 - ページ全体の横スクロール禁止。最大幅モバイルカラム（`max-w-lg`）中央寄せ。
 - 秘密値はリポジトリに入れない。外部LLM・決済・LINEにはつながない（自前WorkerとフォントCDNのみ）。
-- 写真は JPEG / PNG / WebP、1〜3枚、1枚2MBまで。IDは `l_` + 32桁hex。
+- 写真は JPEG / PNG / WebP、1〜3枚、1枚10MBまで。IDは `l_` + 32桁hex。
 
 ---
 
@@ -409,7 +409,7 @@ git commit -m "feat: ViteとCloudflareの足場を置く"
     - `POST /api/letters/:id/stamps` → `200 { stamps }` / `400` / `404`
   - `LetterRecord`（R2 JSON）: `{ id, createdAt, addressTo, body, signature, photos: { contentType: string }[], stamps: { read: number; cute: number } }`
   - 公開JSONの `photoUrls` は `/api/letters/{id}/photos/{n}`
-  - ID: `l_` + 32桁hex。宛名が空なら `"じいじ、ばあばへ"`。本文1〜1000、署名1〜20。写真1〜3、`image/jpeg|png|webp`、各 2 * 1024 * 1024 バイトまで。R2キー `letters/{id}.json` と `letters/{id}/photo-{n}`。
+  - ID: `l_` + 32桁hex。宛名が空なら `"じいじ、ばあばへ"`。本文1〜1000、署名1〜20。写真1〜3、`image/jpeg|png|webp`、各 10 * 1024 * 1024 バイトまで。R2キー `letters/{id}.json` と `letters/{id}/photo-{n}`。
 
 - [ ] **Step 1: Write the failing test**
 
@@ -519,7 +519,7 @@ describe("letters api", () => {
     big.set("addressTo", "じいじ、ばあばへ");
     big.set("body", "きょうね");
     big.set("signature", "はると");
-    big.append("photos", photo("image/jpeg", 2 * 1024 * 1024 + 1, "a.jpg"));
+    big.append("photos", photo("image/jpeg", 10 * 1024 * 1024 + 1, "a.jpg"));
     const bigRes = await exports.default.fetch(
       new Request("http://example.com/api/letters", { method: "POST", body: big }),
     );
@@ -604,7 +604,7 @@ Expected: FAIL（`createLetter` 未実装、`POST /api/letters` が常に404）
 `worker/store.ts`:
 
 ```ts
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const DEFAULT_ADDRESS = "じいじ、ばあばへ";
 
@@ -1008,7 +1008,7 @@ import { useNavigate } from "react-router-dom";
 import type { LetterApi } from "../api/types";
 
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX = 2 * 1024 * 1024;
+const MAX = 10 * 1024 * 1024;
 
 export function ComposePage({ api }: { api: LetterApi }) {
   const navigate = useNavigate();

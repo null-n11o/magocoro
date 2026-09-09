@@ -76,7 +76,7 @@ describe("letters api", () => {
     expect(letter.addressTo).toBe("じいじ、ばあばへ");
   });
 
-  it("rejects missing body and oversized photo", async () => {
+  it("rejects missing body and photos larger than 10MB", async () => {
     const empty = new FormData();
     empty.set("addressTo", "じいじ、ばあばへ");
     empty.set("body", "");
@@ -91,11 +91,25 @@ describe("letters api", () => {
     big.set("addressTo", "じいじ、ばあばへ");
     big.set("body", "きょうね");
     big.set("signature", "はると");
-    big.append("photos", photo("image/jpeg", 2 * 1024 * 1024 + 1, "a.jpg"));
+    big.append("photos", photo("image/jpeg", 10 * 1024 * 1024 + 1, "a.jpg"));
     const bigRes = await exports.default.fetch(
       new Request("http://example.com/api/letters", { method: "POST", body: big }),
     );
     expect(bigRes.status).toBe(400);
+  });
+
+  it("accepts a photo up to 10MB", async () => {
+    const form = new FormData();
+    form.set("addressTo", "じいじ、ばあばへ");
+    form.set("body", "きょうね");
+    form.set("signature", "はると");
+    form.append("photos", photo("image/jpeg", 10 * 1024 * 1024, "large.jpg"));
+
+    const res = await exports.default.fetch(
+      new Request("http://example.com/api/letters", { method: "POST", body: form }),
+    );
+
+    expect(res.status).toBe(201);
   });
 
   it("returns invalid_input for a non-multipart create request", async () => {

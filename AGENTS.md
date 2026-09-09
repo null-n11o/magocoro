@@ -27,7 +27,7 @@
 - 作る画面 → `LetterApi`（`src/api/letters.ts`）→ Worker → R2。手紙画面は取得とスタンプだけ同じ窓口を使う。
 - 画面は `LetterApi` にだけ依存する。LINEやハガキを足すときは Worker の奥だけ増やす。
 - 文面生成はしない。本文は親が書いたものがそのまま載る。
-- 写真と手紙JSONは R2。ブラウザは R2 を直接叩かない。1枚2MBまで、JPEG / PNG / WebP、1〜3枚。
+- 写真と手紙JSONは R2。ブラウザは R2 を直接叩かない。1枚10MBまで、JPEG / PNG / WebP、1〜3枚。
 
 ## Working rules
 

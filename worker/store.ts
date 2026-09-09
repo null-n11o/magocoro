@@ -1,4 +1,4 @@
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const DEFAULT_ADDRESS = "じいじ、ばあばへ";
 

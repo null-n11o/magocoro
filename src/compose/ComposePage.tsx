@@ -4,7 +4,7 @@ import type { LetterApi } from "../api/types";
 import botanicalSprig from "../assets/botanical-sprig.png";
 
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX = 2 * 1024 * 1024;
+const MAX = 10 * 1024 * 1024;
 
 export function ComposePage({ api }: { api: LetterApi }) {
   const navigate = useNavigate();
@@ -90,7 +90,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
                 <h2 id="photos-heading" className="section-title">
                   写真
                 </h2>
-                <p className="section-helper">写真は1〜3枚まで。1枚2MBまで</p>
+                <p className="section-helper">写真は1〜3枚まで。1枚10MBまで</p>
               </div>
               <span className="section-count">{photos.length}/3</span>
             </div>
