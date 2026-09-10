@@ -6,6 +6,23 @@ function voice(type: string, size: number): File {
 }
 
 describe("prepareAudio", () => {
+  it.each([
+    ["audio/x-m4a", "audio/mp4"],
+    ["audio/m4a", "audio/mp4"],
+    ["audio/x-aac", "audio/aac"],
+  ])("normalizes ordinary voice MIME alias %s", async (alias, canonical) => {
+    const file = voice(alias, 123);
+    const result = await prepareAudio(file, async (candidate) => {
+      expect(candidate.type).toBe(canonical);
+      expect(candidate.size).toBe(file.size);
+      return 2;
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.file.type).toBe(canonical);
+      expect(result.file.size).toBe(123);
+    }
+  });
   it("rejects audio longer than 30 seconds", async () => {
     await expect(
       prepareAudio(voice("audio/webm", 100), async () => 31),

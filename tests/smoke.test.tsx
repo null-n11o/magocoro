@@ -10,6 +10,6 @@ describe("scaffold", () => {
         <AppRoutes />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("heading", { name: "Magocoro" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /なんでもない今日を/ })).toBeInTheDocument();
   });
 });

@@ -13,7 +13,8 @@ export type StampKind = "read" | "cute";
 
 export type LetterMediaRecord =
   | { kind: "photos"; photos: { contentType: string }[] }
-  | { kind: "clip"; clip: { contentType: string } };
+  | { kind: "clip"; clip: { contentType: string } }
+  | { kind: "mixed"; photos: { contentType: string }[]; clip: { contentType: string } };
 
 export type LetterRecord = {
   id: string;
@@ -36,7 +37,8 @@ export type LetterPublic = {
   signature: string;
   media:
     | { kind: "photos"; photoUrls: string[] }
-    | { kind: "clip"; clipUrl: string };
+    | { kind: "clip"; clipUrl: string }
+    | { kind: "mixed"; photoUrls: string[]; clipUrl: string };
   audioUrl: string | null;
   stamps: Stamps;
 };
@@ -112,33 +114,31 @@ function isLetterRecord(value: unknown, id: string): value is LetterRecord {
   if (record.audio) {
     if (!isAllowedType(record.audio.contentType, AUDIO_TYPES)) return false;
   }
-  if (record.media.kind === "photos") {
-    return (
-      Array.isArray(record.media.photos) &&
+  if (record.media.kind === "photos" || record.media.kind === "mixed") {
+    if (!(Array.isArray(record.media.photos) &&
       record.media.photos.length >= 1 &&
-      record.media.photos.length <= 3 &&
-      record.media.photos.every((item) => PHOTO_TYPES.has(item.contentType))
-    );
+      record.media.photos.length <= (record.media.kind === "mixed" ? 2 : 3) &&
+      record.media.photos.every((item) => item && PHOTO_TYPES.has(item.contentType)))) {
+      return false;
+    }
+    if (record.media.kind === "photos") return true;
   }
-  if (record.media.kind === "clip") {
-    return isAllowedType(record.media.clip.contentType, CLIP_TYPES);
+  if (record.media.kind === "clip" || record.media.kind === "mixed") {
+    return Boolean(record.media.clip && isAllowedType(record.media.clip.contentType, CLIP_TYPES));
   }
   return false;
 }
 
 export function toPublic(record: LetterRecord): LetterPublic {
-  const media =
-    record.media.kind === "photos"
-      ? {
-          kind: "photos" as const,
-          photoUrls: record.media.photos.map(
-            (_, n) => `/api/letters/${record.id}/photos/${n}`,
-          ),
-        }
-      : {
-          kind: "clip" as const,
-          clipUrl: `/api/letters/${record.id}/clip`,
-        };
+  const photoUrls = record.media.kind !== "clip"
+    ? record.media.photos.map((_, n) => `/api/letters/${record.id}/photos/${n}`)
+    : [];
+  const clipUrl = `/api/letters/${record.id}/clip`;
+  const media: LetterPublic["media"] = record.media.kind === "mixed"
+    ? { kind: "mixed", photoUrls, clipUrl }
+    : record.media.kind === "photos"
+      ? { kind: "photos", photoUrls }
+      : { kind: "clip", clipUrl };
   return {
     id: record.id,
     createdAt: record.createdAt,
@@ -158,21 +158,22 @@ export async function createLetter(
 ): Promise<{ ok: true; id: string } | { ok: false; status: 400 | 503 }> {
   const addressRaw = String(form.get("addressTo") ?? "").trim();
   const addressTo = addressRaw === "" ? DEFAULT_ADDRESS : addressRaw;
-  const body = String(form.get("body") ?? "").trim();
+  const body = String(form.get("body") ?? "");
   const signature = String(form.get("signature") ?? "").trim();
-  const photos = form.getAll("photos").filter(isFile);
-  const clipValue = form.get("clip");
-  const audioValue = form.get("audio");
-  const clipFile = isFile(clipValue) ? clipValue : null;
-  const audioFile = isFile(audioValue) ? audioValue : null;
+  const photos = form.getAll("photos");
+  const clips = form.getAll("clip");
+  const audios = form.getAll("audio");
+  if (!photos.every(isFile) || !clips.every(isFile) || !audios.every(isFile) ||
+    clips.length > 1 || audios.length > 1) return { ok: false, status: 400 };
+  const clipFile = clips[0] ?? null;
+  const audioFile = audios[0] ?? null;
 
-  if (body.length < 1 || body.length > 1000) return { ok: false, status: 400 };
+  if (body.trim().length < 1 || body.length > 1000) return { ok: false, status: 400 };
   if (signature.length < 1 || signature.length > 20) {
     return { ok: false, status: 400 };
   }
-  if (photos.length > 0 && clipFile) return { ok: false, status: 400 };
   if (photos.length === 0 && !clipFile) return { ok: false, status: 400 };
-  if (photos.length > 3) return { ok: false, status: 400 };
+  if (photos.length + clips.length > 3) return { ok: false, status: 400 };
 
   for (const file of photos) {
     if (!PHOTO_TYPES.has(file.type) || file.size > MAX_PHOTO_BYTES) {
@@ -208,7 +209,9 @@ export async function createLetter(
     body,
     signature,
     media: clipFile
-      ? { kind: "clip", clip: { contentType: baseContentType(clipFile.type) } }
+      ? photos.length > 0
+        ? { kind: "mixed", photos: photos.map((file) => ({ contentType: file.type })), clip: { contentType: baseContentType(clipFile.type) } }
+        : { kind: "clip", clip: { contentType: baseContentType(clipFile.type) } }
       : { kind: "photos", photos: photos.map((file) => ({ contentType: file.type })) },
     stamps: { read: 0, cute: 0 },
   };
@@ -216,7 +219,7 @@ export async function createLetter(
 
   const keysToCleanup: string[] = [];
   try {
-    if (record.media.kind === "photos") {
+    if (record.media.kind !== "clip") {
       for (const [n, file] of photos.entries()) {
         const key = photoKey(id, n);
         keysToCleanup.push(key);
@@ -224,7 +227,8 @@ export async function createLetter(
           httpMetadata: { contentType: file.type },
         });
       }
-    } else if (clipFile) {
+    }
+    if (clipFile) {
       const key = clipKey(id);
       keysToCleanup.push(key);
       await env.LETTERS.put(key, await clipFile.arrayBuffer(), {
@@ -291,7 +295,7 @@ export async function getPhoto(
 > {
   const result = await getLetter(env, id);
   if (result.status !== "ok") return result;
-  if (result.record.media.kind !== "photos") return { status: "not_found" };
+  if (result.record.media.kind === "clip") return { status: "not_found" };
   if (!Number.isInteger(n) || n < 0 || n >= result.record.media.photos.length) {
     return { status: "not_found" };
   }
@@ -313,7 +317,7 @@ export async function getClip(
 > {
   const result = await getLetter(env, id);
   if (result.status !== "ok") return result;
-  if (result.record.media.kind !== "clip") return { status: "not_found" };
+  if (result.record.media.kind === "photos") return { status: "not_found" };
   const obj = await readObject(env, clipKey(id), result.record.media.clip.contentType);
   return obj ? { status: "ok", ...obj } : { status: "not_found" };
 }
