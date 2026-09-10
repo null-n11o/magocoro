@@ -198,7 +198,7 @@ describe("ComposePage", () => {
     await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
 
     expect(api.createLetter).toHaveBeenCalledWith({
-      photos: [files[1]],
+      media: { kind: "photos", photos: [files[1]] },
       addressTo: "じいじ、ばあばへ",
       body: "きょうね、たてたよ",
       signature: "はると",
@@ -245,7 +245,7 @@ describe("ComposePage", () => {
     await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
 
     expect(api.createLetter).toHaveBeenCalledWith({
-      photos: [files[1], files[2], files[0]],
+      media: { kind: "photos", photos: [files[1], files[2], files[0]] },
       addressTo: "じいじ、ばあばへ",
       body: "きょうね、たてたよ",
       signature: "はると",
@@ -276,7 +276,7 @@ describe("ComposePage", () => {
     await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
 
     expect(api.createLetter).toHaveBeenCalledWith({
-      photos: [files[1], files[0]],
+      media: { kind: "photos", photos: [files[1], files[0]] },
       addressTo: "じいじ、ばあばへ",
       body: "きょうね、たてたよ",
       signature: "はると",

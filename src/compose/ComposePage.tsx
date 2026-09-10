@@ -167,7 +167,12 @@ export function ComposePage({ api }: { api: LetterApi }) {
     setSubmitting(true);
     setSaveError("");
     try {
-      const { id } = await api.createLetter({ photos, addressTo, body, signature });
+      const { id } = await api.createLetter({
+        media: { kind: "photos", photos },
+        addressTo,
+        body,
+        signature,
+      });
       navigate(`/letter/${id}`, { state: { fromCompose: true } });
     } catch {
       setSaveError("いま保存できません");

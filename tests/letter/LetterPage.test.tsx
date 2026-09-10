@@ -8,12 +8,26 @@ import { LetterPage } from "../../src/letter/LetterPage";
 const letter: LetterPublic = {
   id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   createdAt: "2026-09-08T12:00:00.000Z",
+  expiresAt: "2026-12-07T12:00:00.000Z",
   addressTo: "じいじ、ばあばへ",
   body: "きょうね、たてたよ",
   signature: "はると",
-  photoUrls: ["/api/letters/l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/photos/0"],
+  media: {
+    kind: "photos",
+    photoUrls: ["/api/letters/l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/photos/0"],
+  },
+  audioUrl: null,
   stamps: { read: 0, cute: 2 },
 };
+
+function apiWithLetter(overrides: Partial<LetterApi> = {}): LetterApi {
+  return {
+    createLetter: vi.fn(),
+    getLetter: vi.fn().mockResolvedValue({ status: "ok", letter }),
+    addStamp: vi.fn(),
+    ...overrides,
+  };
+}
 
 function renderLetter(
   api: LetterApi,
@@ -34,12 +48,7 @@ function renderLetter(
 
 describe("LetterPage", () => {
   it("presents the shared letter as a family photo letter", async () => {
-    const api: LetterApi = {
-      createLetter: vi.fn(),
-      getLetter: vi.fn().mockResolvedValue(letter),
-      addStamp: vi.fn(),
-    };
-    renderLetter(api);
+    renderLetter(apiWithLetter());
 
     await screen.findByText("お孫さんからのお手紙です");
     expect(
@@ -57,11 +66,9 @@ describe("LetterPage", () => {
 
   it("renders letter content and increments stamps", async () => {
     const user = userEvent.setup();
-    const api: LetterApi = {
-      createLetter: vi.fn(),
-      getLetter: vi.fn().mockResolvedValue(letter),
-      addStamp: vi.fn().mockResolvedValue({ read: 1, cute: 2 }),
-    };
+    const api = apiWithLetter({
+      addStamp: vi.fn().mockResolvedValue({ status: "ok", stamps: { read: 1, cute: 2 } }),
+    });
     renderLetter(api);
     expect(await screen.findByText("じいじ、ばあばへ")).toBeInTheDocument();
     expect(screen.getByText("きょうね、たてたよ")).toBeInTheDocument();
@@ -69,7 +76,7 @@ describe("LetterPage", () => {
     expect(screen.getByText(/2026年9月8日/)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "手紙の写真 1" })).toHaveAttribute(
       "src",
-      letter.photoUrls[0],
+      letter.media.kind === "photos" ? letter.media.photoUrls[0] : "",
     );
     const read = screen.getByRole("button", { name: "読んだよ" });
     expect(read).toHaveAttribute("aria-pressed", "false");
@@ -80,25 +87,27 @@ describe("LetterPage", () => {
   });
 
   it("uses the Japan date for a JST morning postmark", async () => {
-    const api: LetterApi = {
-      createLetter: vi.fn(),
-      getLetter: vi.fn().mockResolvedValue({
-        ...letter,
-        createdAt: "2026-09-07T15:30:00.000Z",
+    renderLetter(
+      apiWithLetter({
+        getLetter: vi.fn().mockResolvedValue({
+          status: "ok",
+          letter: {
+            ...letter,
+            createdAt: "2026-09-07T15:30:00.000Z",
+          },
+        }),
       }),
-      addStamp: vi.fn(),
-    };
-    renderLetter(api);
+    );
     expect(await screen.findByText("2026年9月8日")).toBeInTheDocument();
   });
 
   it("shows not found for unknown id", async () => {
-    const api: LetterApi = {
-      createLetter: vi.fn(),
-      getLetter: vi.fn().mockResolvedValue(null),
-      addStamp: vi.fn(),
-    };
-    renderLetter(api, "l_dddddddddddddddddddddddddddddddd");
+    renderLetter(
+      apiWithLetter({
+        getLetter: vi.fn().mockResolvedValue({ status: "not_found" }),
+      }),
+      "l_dddddddddddddddddddddddddddddddd",
+    );
     expect(await screen.findByText("お手紙が見つからない")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "お手紙をつくる" })).toHaveAttribute(
       "href",
@@ -106,13 +115,11 @@ describe("LetterPage", () => {
     );
   });
 
-  it("shows not found when addStamp returns null", async () => {
+  it("shows not found when addStamp returns not_found", async () => {
     const user = userEvent.setup();
-    const api: LetterApi = {
-      createLetter: vi.fn(),
-      getLetter: vi.fn().mockResolvedValue(letter),
-      addStamp: vi.fn().mockResolvedValue(null),
-    };
+    const api = apiWithLetter({
+      addStamp: vi.fn().mockResolvedValue({ status: "not_found" }),
+    });
     renderLetter(api);
     await screen.findByText("じいじ、ばあばへ");
     await user.click(screen.getByRole("button", { name: "読んだよ" }));
@@ -122,11 +129,9 @@ describe("LetterPage", () => {
 
   it("keeps the letter visible when adding a stamp fails", async () => {
     const user = userEvent.setup();
-    const api: LetterApi = {
-      createLetter: vi.fn(),
-      getLetter: vi.fn().mockResolvedValue(letter),
+    const api = apiWithLetter({
       addStamp: vi.fn().mockRejectedValue(new Error("unavailable")),
-    };
+    });
     renderLetter(api);
     await screen.findByText("じいじ、ばあばへ");
     await user.click(screen.getByRole("button", { name: "読んだよ" }));
@@ -135,17 +140,32 @@ describe("LetterPage", () => {
   });
 
   it("shows not found when getLetter rejects", async () => {
-    const api: LetterApi = {
-      createLetter: vi.fn(),
-      getLetter: vi.fn().mockRejectedValue(new Error("network")),
-      addStamp: vi.fn(),
-    };
-    renderLetter(api);
+    renderLetter(
+      apiWithLetter({
+        getLetter: vi.fn().mockRejectedValue(new Error("network")),
+      }),
+    );
     expect(await screen.findByText("お手紙が見つからない")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "お手紙をつくる" })).toHaveAttribute(
       "href",
       "/",
     );
+  });
+
+  it("shows a closed letter for expired id", async () => {
+    renderLetter(
+      apiWithLetter({
+        getLetter: vi.fn().mockResolvedValue({ status: "expired" }),
+      }),
+    );
+    expect(
+      await screen.findByText("このお手紙は90日で閉じました"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "お手紙をつくる" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(screen.queryByText("きょうね、たてたよ")).not.toBeInTheDocument();
   });
 
   it("shows the share UI after creating a letter", async () => {
@@ -155,12 +175,7 @@ describe("LetterPage", () => {
       value: { writeText },
       configurable: true,
     });
-    const api: LetterApi = {
-      createLetter: vi.fn(),
-      getLetter: vi.fn().mockResolvedValue(letter),
-      addStamp: vi.fn(),
-    };
-    renderLetter(api, letter.id, { fromCompose: true });
+    renderLetter(apiWithLetter(), letter.id, { fromCompose: true });
     await screen.findByText("じいじ、ばあばへ");
     expect(
       screen.getByText("このリンクをLINEに貼ると、相手のスマホでも開けます"),
@@ -176,12 +191,7 @@ describe("LetterPage", () => {
       value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
       configurable: true,
     });
-    const api: LetterApi = {
-      createLetter: vi.fn(),
-      getLetter: vi.fn().mockResolvedValue(letter),
-      addStamp: vi.fn(),
-    };
-    renderLetter(api, letter.id, { fromCompose: true });
+    renderLetter(apiWithLetter(), letter.id, { fromCompose: true });
     await screen.findByText("じいじ、ばあばへ");
     await user.click(screen.getByRole("button", { name: "リンクをコピー" }));
     expect(

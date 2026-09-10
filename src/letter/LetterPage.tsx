@@ -7,6 +7,12 @@ type LetterLocationState = {
   fromCompose?: boolean;
 };
 
+type View =
+  | { status: "loading" }
+  | { status: "ok"; letter: LetterPublic }
+  | { status: "not_found" }
+  | { status: "expired" };
+
 function postmark(iso: string): string {
   const parts = new Intl.DateTimeFormat("ja-JP", {
     timeZone: "Asia/Tokyo",
@@ -23,7 +29,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
   const { id = "" } = useParams();
   const location = useLocation();
   const isSender = (location.state as LetterLocationState | null)?.fromCompose === true;
-  const [letter, setLetter] = useState<LetterPublic | null | undefined>(undefined);
+  const [view, setView] = useState<View>({ status: "loading" });
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const [stampError, setStampError] = useState(false);
@@ -34,10 +40,10 @@ export function LetterPage({ api }: { api: LetterApi }) {
     api
       .getLetter(id)
       .then((value) => {
-        if (!cancelled) setLetter(value);
+        if (!cancelled) setView(value);
       })
       .catch(() => {
-        if (!cancelled) setLetter(null);
+        if (!cancelled) setView({ status: "not_found" });
       });
     return () => {
       cancelled = true;
@@ -45,15 +51,15 @@ export function LetterPage({ api }: { api: LetterApi }) {
   }, [api, id]);
 
   async function onStamp(kind: StampKind) {
-    if (!letter) return;
+    if (view.status !== "ok") return;
     setStampError(false);
     try {
-      const stamps = await api.addStamp(letter.id, kind);
-      if (!stamps) {
-        setLetter(null);
+      const result = await api.addStamp(view.letter.id, kind);
+      if (result.status === "not_found" || result.status === "expired") {
+        setView(result);
         return;
       }
-      setLetter({ ...letter, stamps });
+      setView({ status: "ok", letter: { ...view.letter, stamps: result.stamps } });
       setPressed((prev) => ({ ...prev, [kind]: true }));
     } catch {
       setStampError(true);
@@ -71,7 +77,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
     }
   }
 
-  if (letter === undefined) {
+  if (view.status === "loading") {
     return (
       <main className="page-shell letter-shell">
         <div className="page-column" aria-busy="true" />
@@ -79,7 +85,25 @@ export function LetterPage({ api }: { api: LetterApi }) {
     );
   }
 
-  if (letter === null) {
+  if (view.status === "expired") {
+    return (
+      <main className="page-shell letter-shell">
+        <div className="page-column empty-letter">
+          <p className="wordmark">Magocoro</p>
+          <div className="empty-paper">
+            <p className="empty-kicker">便りをひらけませんでした</p>
+            <h1 className="empty-title">このお手紙は90日で閉じました</h1>
+            <p className="empty-copy">期限がすぎたお手紙です。新しいお手紙をつくれます。</p>
+            <Link to="/" className="text-link">
+              お手紙をつくる
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (view.status === "not_found") {
     return (
       <main className="page-shell letter-shell">
         <div className="page-column empty-letter">
@@ -96,6 +120,9 @@ export function LetterPage({ api }: { api: LetterApi }) {
       </main>
     );
   }
+
+  const { letter } = view;
+  const photoUrls = letter.media.kind === "photos" ? letter.media.photoUrls : [];
 
   return (
     <main className="page-shell letter-shell">
@@ -122,8 +149,8 @@ export function LetterPage({ api }: { api: LetterApi }) {
 
         <article className="letter-paper" aria-label="お手紙">
           <div className="letter-photo-mat" role="group" aria-label="手紙の写真">
-            <div className={`letter-photo-grid photo-count-${letter.photoUrls.length}`}>
-              {letter.photoUrls.map((src, n) => (
+            <div className={`letter-photo-grid photo-count-${photoUrls.length}`}>
+              {photoUrls.map((src, n) => (
                 <img
                   key={src}
                   src={src}
