@@ -755,6 +755,10 @@ button {
   margin: 0.75rem 0 0;
 }
 
+.letter-paper.is-capturing .letter-audio {
+  display: none;
+}
+
 .letter-address {
   margin: 1.8rem 0 0;
   padding-bottom: 0.75rem;

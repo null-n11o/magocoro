@@ -1,49 +1,218 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addParentAudioTrack,
-  photoDurationsMs,
-  planClipBundle,
-  renderPhotoBundle,
+  clipInPaperPlan,
+  keepRecorderMime,
+  keepShareKind,
+  keepVideoFile,
+  letterBundleDurationMs,
+  mediaRectInPaper,
+  renderPaperBundle,
+  snapshotToJpeg,
 } from "../../src/media/bundleVideo";
 
-describe("bundleVideo", () => {
-  it("spreads photos across 6 to 15 seconds without audio", () => {
-    expect(photoDurationsMs(1, null).reduce((a, b) => a + b, 0)).toBe(6000);
-    const three = photoDurationsMs(3, null);
-    expect(three).toHaveLength(3);
-    const total = three.reduce((a, b) => a + b, 0);
-    expect(total).toBeGreaterThanOrEqual(6000);
-    expect(total).toBeLessThanOrEqual(15000);
-    expect(photoDurationsMs(2, 10)).toEqual([5000, 5000]);
+describe("keepShareKind", () => {
+  it("uses an image when the letter has photos and no voice", () => {
+    expect(
+      keepShareKind({
+        media: { kind: "photos", photoUrls: ["/p"] },
+        audioUrl: null,
+      }),
+    ).toBe("image");
   });
 
+  it("uses a video when the letter has voice or a clip", () => {
+    expect(
+      keepShareKind({
+        media: { kind: "photos", photoUrls: ["/p"] },
+        audioUrl: "/audio",
+      }),
+    ).toBe("video");
+    expect(
+      keepShareKind({
+        media: { kind: "clip", clipUrl: "/clip" },
+        audioUrl: null,
+      }),
+    ).toBe("video");
+  });
+});
+
+describe("letterBundleDurationMs", () => {
+  it("follows audio length when there is no clip", () => {
+    expect(
+      letterBundleDurationMs({ audioDurationSec: 8, clipDurationSec: null }),
+    ).toBe(8000);
+  });
+
+  it("uses the longer of clip and voice", () => {
+    expect(
+      letterBundleDurationMs({ audioDurationSec: 10, clipDurationSec: 4 }),
+    ).toBe(10000);
+    expect(
+      letterBundleDurationMs({ audioDurationSec: 3, clipDurationSec: 9 }),
+    ).toBe(9000);
+  });
+
+  it("follows clip length when there is no voice", () => {
+    expect(
+      letterBundleDurationMs({ audioDurationSec: null, clipDurationSec: 6 }),
+    ).toBe(6000);
+  });
+});
+
+describe("clipInPaperPlan", () => {
   it("mutes the clip only when parent audio exists", () => {
-    expect(planClipBundle(true)).toEqual({
+    expect(clipInPaperPlan(true)).toEqual({
       muteClip: true,
       useParentAudio: true,
-      overlayBody: true,
     });
-    expect(planClipBundle(false)).toEqual({
+    expect(clipInPaperPlan(false)).toEqual({
       muteClip: false,
       useParentAudio: false,
-      overlayBody: true,
     });
   });
+});
 
-  it("returns one video blob from dummy frames", async () => {
-    const record = vi.fn(async () => new Blob([new Uint8Array(16)], { type: "video/webm" }));
-    const blob = await renderPhotoBundle({
-      frames: [
-        { source: {} as CanvasImageSource, durationMs: 3000 },
-        { source: {} as CanvasImageSource, durationMs: 3000 },
-      ],
-      width: 720,
-      height: 1280,
+describe("keepRecorderMime", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("prefers mp4 over webm when the recorder supports both", () => {
+    vi.stubGlobal("MediaRecorder", {
+      isTypeSupported: (type: string) =>
+        type.startsWith("video/mp4") || type.startsWith("video/webm"),
+    });
+    expect(keepRecorderMime()).toMatch(/^video\/mp4/);
+  });
+
+  it("falls back to webm when mp4 is unavailable", () => {
+    vi.stubGlobal("MediaRecorder", {
+      isTypeSupported: (type: string) => type.startsWith("video/webm"),
+    });
+    expect(keepRecorderMime()).toMatch(/^video\/webm/);
+  });
+});
+
+describe("keepVideoFile", () => {
+  it("names an mp4 blob magocoro.mp4", () => {
+    const file = keepVideoFile(
+      new Blob([new Uint8Array(8)], { type: "video/mp4;codecs=avc1" }),
+    );
+    expect(file.name).toBe("magocoro.mp4");
+    expect(file.type).toBe("video/mp4");
+  });
+
+  it("names a webm blob magocoro.webm", () => {
+    const file = keepVideoFile(
+      new Blob([new Uint8Array(8)], { type: "video/webm;codecs=vp8" }),
+    );
+    expect(file.name).toBe("magocoro.webm");
+    expect(file.type).toMatch(/^video\/webm/);
+  });
+});
+
+describe("mediaRectInPaper", () => {
+  it("returns the media box relative to the paper", () => {
+    const paper = document.createElement("article");
+    const media = document.createElement("video");
+    paper.append(media);
+    vi.spyOn(paper, "getBoundingClientRect").mockReturnValue({
+      x: 10,
+      y: 20,
+      left: 10,
+      top: 20,
+      width: 300,
+      height: 400,
+      right: 310,
+      bottom: 420,
+      toJSON() {
+        return {};
+      },
+    });
+    vi.spyOn(media, "getBoundingClientRect").mockReturnValue({
+      x: 30,
+      y: 50,
+      left: 30,
+      top: 50,
+      width: 100,
+      height: 80,
+      right: 130,
+      bottom: 130,
+      toJSON() {
+        return {};
+      },
+    });
+    expect(mediaRectInPaper(paper, media)).toEqual({
+      x: 20,
+      y: 30,
+      width: 100,
+      height: 80,
+    });
+  });
+});
+
+describe("renderPaperBundle", () => {
+  it("records one paper snapshot instead of photo frames", async () => {
+    const paper = {} as CanvasImageSource;
+    const record = vi.fn(async (plan) => {
+      expect("frames" in plan).toBe(false);
+      expect(plan.paper).toBe(paper);
+      expect(plan.durationMs).toBe(4000);
+      expect(plan.clip).toBeUndefined();
+      return new Blob([new Uint8Array(16)], { type: "video/webm" });
+    });
+    const blob = await renderPaperBundle({
+      plan: {
+        paper,
+        width: 720,
+        height: 1280,
+        durationMs: 4000,
+        audio: new Blob([new Uint8Array(4)], { type: "audio/webm" }),
+      },
       record,
     });
     expect(blob.size).toBeGreaterThan(0);
     expect(blob.type).toMatch(/^video\//);
     expect(record).toHaveBeenCalledTimes(1);
+  });
+
+  it("places the clip inside the paper instead of filling the frame", async () => {
+    const record = vi.fn(async (plan) => {
+      expect(plan.clip).toEqual(
+        expect.objectContaining({ x: 20, y: 30, width: 100, height: 80 }),
+      );
+      return new Blob([new Uint8Array(8)], { type: "video/webm" });
+    });
+    await renderPaperBundle({
+      plan: {
+        paper: {} as CanvasImageSource,
+        width: 360,
+        height: 640,
+        durationMs: 1000,
+        clip: {
+          source: {} as CanvasImageSource,
+          x: 20,
+          y: 30,
+          width: 100,
+          height: 80,
+          mute: false,
+          useClipAudio: true,
+        },
+      },
+      record,
+    });
+    expect(record).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("snapshotToJpeg", () => {
+  it("returns a jpeg blob from a paper snapshot", async () => {
+    const jpeg = await snapshotToJpeg({} as HTMLCanvasElement, async () =>
+      new Blob([new Uint8Array(8)], { type: "image/jpeg" }),
+    );
+    expect(jpeg.size).toBeGreaterThan(0);
+    expect(jpeg.type).toMatch(/^image\/jpeg/);
   });
 });
 

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { LetterApi, LetterPublic, StampKind } from "../api/types";
 import botanicalSprig from "../assets/botanical-sprig.png";
+import { keepShareKind } from "../media/bundleVideo";
 import { buildKeepVideo } from "./buildKeepVideo";
 import { downloadFile, shareOrSaveVideo } from "../media/shareBundle";
 
@@ -33,6 +34,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
   const [bundling, setBundling] = useState(false);
   const [bundleFailed, setBundleFailed] = useState(false);
   const [bundleSaved, setBundleSaved] = useState(false);
+  const paperRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,12 +125,14 @@ export function LetterPage({ api }: { api: LetterApi }) {
   const { letter } = view;
 
   async function onBundle() {
-    if (!letter || bundling) return;
+    const paper = paperRef.current;
+    if (!letter || !paper || bundling) return;
     setBundling(true);
     setBundleFailed(false);
     setBundleSaved(false);
+    paper.classList.add("is-capturing");
     try {
-      const file = await buildKeepVideo(letter);
+      const file = await buildKeepVideo(letter, paper);
       const result = await shareOrSaveVideo(file, {
         canShare: (data) =>
           typeof navigator.canShare === "function" && navigator.canShare(data),
@@ -139,9 +143,12 @@ export function LetterPage({ api }: { api: LetterApi }) {
     } catch {
       setBundleFailed(true);
     } finally {
+      paper.classList.remove("is-capturing");
       setBundling(false);
     }
   }
+
+  const shareKind = keepShareKind(letter);
 
   return (
     <main className="page-shell letter-shell">
@@ -166,7 +173,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
           <p className="letter-kicker">お孫さんからのお手紙です</p>
         </header>
 
-        <article className="letter-paper" aria-label="お手紙">
+        <article ref={paperRef} className="letter-paper" aria-label="お手紙">
           <div
             className="letter-photo-mat"
             role="group"
@@ -187,7 +194,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
               <video
                 className="stamp-frame letter-clip"
                 src={letter.media.clipUrl}
-                controls
+                controls={!bundling}
                 playsInline
                 aria-label="手紙の動画"
               />
@@ -214,7 +221,13 @@ export function LetterPage({ api }: { api: LetterApi }) {
             onClick={() => void onBundle()}
             disabled={bundling}
           >
-            {bundling ? "動画をつくっています…" : "動画にして送る"}
+            {bundling
+              ? shareKind === "image"
+                ? "画像をつくっています…"
+                : "動画をつくっています…"
+              : shareKind === "image"
+                ? "画像にして送る"
+                : "動画にして送る"}
           </button>
           {copied ? <p className="feedback-copy">コピーしました</p> : null}
           {copyFailed ? (
@@ -223,8 +236,20 @@ export function LetterPage({ api }: { api: LetterApi }) {
               <p className="copy-url">{window.location.href}</p>
             </div>
           ) : null}
-          {bundleSaved ? <p className="feedback-copy">LINEのトークに、この動画を送ってください</p> : null}
-          {bundleFailed ? <p className="form-error">動画にできませんでした。リンクを送ってください</p> : null}
+          {bundleSaved ? (
+            <p className="feedback-copy">
+              {shareKind === "image"
+                ? "LINEのトークに、この画像を送ってください"
+                : "LINEのトークに、この動画を送ってください"}
+            </p>
+          ) : null}
+          {bundleFailed ? (
+            <p className="form-error">
+              {shareKind === "image"
+                ? "画像にできませんでした。リンクを送ってください"
+                : "動画にできませんでした。リンクを送ってください"}
+            </p>
+          ) : null}
         </section>
 
         <section className="reply-section" aria-labelledby="reply-heading">
