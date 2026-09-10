@@ -260,10 +260,17 @@ describe("ComposePage", () => {
       getLetter: vi.fn(),
       addStamp: vi.fn(),
     };
-    renderCompose(api);
+    const { container } = renderCompose(api);
     await user.upload(screen.getByLabelText("写真"), files);
-    await user.click(screen.getByRole("button", { name: "写真1を並べ替え" }));
+    const placingCards = Array.from(container.querySelectorAll(".photo-card.is-placing"));
+    expect(placingCards).toHaveLength(2);
+    for (const card of placingCards) {
+      fireEvent.animationEnd(card, { animationName: "photo-place" });
+    }
+    screen.getByRole("button", { name: "写真1を並べ替え" }).focus();
     await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("button", { name: "写真2を並べ替え" })).toHaveFocus();
+    expect(container.querySelectorAll(".photo-card.is-placing")).toHaveLength(0);
     await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
     await user.type(screen.getByLabelText("署名"), "はると");
     await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));

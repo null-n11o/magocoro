@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -35,6 +36,18 @@ export function ComposePage({ api }: { api: LetterApi }) {
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const photoKeys = useRef(new WeakMap<File, string>());
+  const nextPhotoKey = useRef(0);
+  const [placingPhotoKeys, setPlacingPhotoKeys] = useState<Set<string>>(() => new Set());
+
+  function getPhotoKey(file: File) {
+    const existingKey = photoKeys.current.get(file);
+    if (existingKey) return existingKey;
+    const key = `photo-${nextPhotoKey.current}`;
+    nextPhotoKey.current += 1;
+    photoKeys.current.set(file, key);
+    return key;
+  }
 
   useEffect(() => {
     const urls = photos.map((file) => URL.createObjectURL(file));
@@ -57,6 +70,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
     if (!files) return;
     setPhotoError("");
     const next = [...photos];
+    const addedPhotoKeys: string[] = [];
     for (const file of Array.from(files)) {
       if (!ALLOWED.has(file.type)) {
         setPhotoError("この写真は使えません");
@@ -68,8 +82,12 @@ export function ComposePage({ api }: { api: LetterApi }) {
       }
       if (next.length >= 3) break;
       next.push(file);
+      addedPhotoKeys.push(getPhotoKey(file));
     }
     setPhotos(next);
+    if (addedPhotoKeys.length > 0) {
+      setPlacingPhotoKeys((current) => new Set([...current, ...addedPhotoKeys]));
+    }
   }
 
   function reorderPhotos(from: number, to: number) {
@@ -78,8 +96,18 @@ export function ComposePage({ api }: { api: LetterApi }) {
   }
 
   function removePhoto(index: number) {
+    const removedPhoto = photos[index];
     setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index));
     setPhotoUrls((current) => current.filter((_, photoIndex) => photoIndex !== index));
+    if (removedPhoto) {
+      const removedKey = getPhotoKey(removedPhoto);
+      setPlacingPhotoKeys((current) => {
+        if (!current.has(removedKey)) return current;
+        const next = new Set(current);
+        next.delete(removedKey);
+        return next;
+      });
+    }
     setPhotoError("");
   }
 
@@ -189,16 +217,26 @@ export function ComposePage({ api }: { api: LetterApi }) {
             <div className="photo-slot-grid" role="group" aria-label="写真を飾る">
               {photos.map((file, i) => (
                 <div
-                  key={`${file.name}-${i}`}
+                  key={getPhotoKey(file)}
                   className={[
                     "photo-card",
                     "photo-slot",
+                    placingPhotoKeys.has(getPhotoKey(file)) ? "is-placing" : "",
                     draggingIndex === i ? "is-dragging" : "",
                     dragOverIndex === i && draggingIndex !== i ? "is-drag-over" : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}
                   data-photo-index={i}
+                  onAnimationEnd={() => {
+                    const placedKey = getPhotoKey(file);
+                    setPlacingPhotoKeys((current) => {
+                      if (!current.has(placedKey)) return current;
+                      const next = new Set(current);
+                      next.delete(placedKey);
+                      return next;
+                    });
+                  }}
                 >
                   <img
                     src={photoUrls[i]}
