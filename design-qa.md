@@ -1,56 +1,33 @@
-# Design QA
+# Stationery UI verification — 2026-09-11
 
-source visual truth path: `docs/design-directions/02-family-album.png`
-implementation screenshot path: `docs/design-directions/implementation-family-album.png`
-responsive captures: `docs/design-directions/implementation-family-album-desktop-before.png`, `docs/design-directions/implementation-family-album-desktop-after.png`, `docs/design-directions/implementation-family-album-tablet-after.png`, `docs/design-directions/implementation-family-album-mobile-after.png`
-copy verification captures: `docs/design-directions/implementation-family-album-desktop-copy-final.png`, `docs/design-directions/implementation-family-album-mobile-copy-final.png`
-viewport: source image is 853 x 1844 pixels; captures cover 1440 x 900, 1024 x 768, and 390 x 844 CSS viewports
-state: `/` compose screen, initial empty state
+Result: PASS for the selected LP art direction applied to the existing composer/recipient flow and the requested combined media rule. No unresolved critical or important review findings. This is a functional UI adaptation, not a pixel clone of the marketing image.
 
-## Comparison evidence
+## Reference and visual comparison
 
-Full-view comparison: completed for the initial empty state at desktop, tablet, and mobile widths.
+Reference: `docs/superpowers/assets/2026-09-10-approved-stationery.png` (user-selected first design with revised headline). Compared the source and actual browser captures together. Retained ivory paper/background, warm brick accents, serif hierarchy, handwritten hiragana letter guidance, generous spacing, subtle rules and real scalloped postage frames. Desktop uses a form beside a live letter; mobile stacks them. The requested three-item composition uses one large frame with two smaller frames. Video occupies the main frame; photo order is preserved. Actual user text is never rewritten.
 
-Focused region comparison: completed for the header, photo picker, form fields, CTA, and footer before and after the desktop fix.
+Final captures are available in the task's outputs directory as `magocoro-ui-desktop.png` (1440×1000) and `magocoro-letter-mobile.png` (390×844). Native viewport screenshots were used because the browser's full-page stitching distorted the layout. Synthetic toddler photos were used only in local QA letters, never as default user content.
 
-## Findings
+Initial review corrected desktop preview alignment, narrow photo controls, raster/export frame differences, bottom rule rendering, image decode timeout, M4A aliases and soundtrack retention. A second review caught early recorder failure handling; the regression now fails promptly, cancels frames and cleans resources. Final source review passed after these fixes.
 
-- [P1] Desktop title wrapping made the first screen look broken.
-  Location: `/` compose screen, title block.
-  Evidence: the 1440px capture wrapped the title into four lines because `.compose-title` combined a `21rem` max-width with a `48px` computed font size.
-  Fix status: verified.
-  Commit: `49ecf88`.
-  Before: `docs/design-directions/implementation-family-album-desktop-before.png`.
-  After: `docs/design-directions/implementation-family-album-desktop-after.png`.
+## Browser and export evidence
 
-- [P2] The initial empty state is structurally aligned with the selected family-album direction.
-  Location: `/` compose screen.
-  Evidence: the responsive captures show the warm paper background, vermilion wordmark/CTA, Japanese-only form, photo-first hierarchy, thin separators, and botanical accent without horizontal overflow.
-  Impact: the reference's selected-photo collage state is not represented by this capture because no files are selected.
-  Follow-up: capture the same screen after selecting 1–3 photos when a file-upload-capable browser runner is available.
+Local Vite + Worker/R2 at `http://127.0.0.1:4173/`; no production writes.
 
-- [P2] The compose screen uses a child-voice heading while the shared letter screen keeps the letter body as its visual focus.
-  Location: `/` compose screen and `/letter/:id` shared letter screen.
-  Evidence: the copy verification captures show `こんなことがあったよ` on the compose screen; the component tests assert the heading is absent from the shared letter screen.
-  Fix status: verified.
-  Commit: `6f37b5d`.
+- Actual composer created a three-photo letter and two-photo/video letters, including optional voice. Reload retained media and text. Read reaction retained its count after reload. Copy reported success.
+- The 30-second video limit and combined three-item capacity are enforced by client tests; malformed/duplicate media, combined capacity, old records, expiry and persistence are covered by Worker tests.
+- M4A import accepted the real AAC fixture and displayed the voice player. Native clip playback reached its two-second end. Imported OGG voice was also created and retrieved.
+- Photo-only JPEG downloaded successfully. Inspected its three media frames, hiragana body/signature and address rule; no editing or sharing controls were included.
+- Mixed MP4 downloaded with H264 video and AAC audio. Inspected a decoded frame: video stayed in its postage slot and both static photos remained. A 440Hz source clip produced a strong 440Hz output signal (1363 versus 0.25 at330Hz).
+- Mixed plus voice MP4 had H264/AAC streams, about2seconds duration. A 330Hz voice fixture replaced the440Hz clip soundtrack (330Hz magnitude1404 versus0.91 at440Hz), verifying audible voice priority rather than merely an audio-track declaration.
+- JPEG/MP4 checks used an ignored local harness importing the production LetterPaper and buildKeepVideo, bypassing only the OS share sheet. The application's native share sheet was also opened and canceled successfully.
+- Receiver widths320,390 and768 matched document scroll width. At320, all six three-photo action buttons measured74.66×44px. Desktop composer checked at1440.
+- Unknown letter shows a friendly recovery page with a creation link. Final recipient browser error/warning log was empty.
 
-## Automated checks
+## Automated verification
 
-- `npm test`: passed (24 tests)
-- `npm run build`: passed
-- `npm run lint`: passed
+Final production source `fa01fda`: frontend98 tests and Worker26 tests pass (124total). Frontend used maxWorkers2 to avoid local resource contention. TypeScript/Vite build passes. A test-only lint warning was subsequently removed and checked separately. Functional, API, export geometry, audio setup/failure and media-readiness cases are covered; no screenshot assertions claim exact browser pixels.
 
-## Comparison history
+## Limits
 
-No P0/P1/P2 visual iteration was run because the first comparison was blocked before capture.
-
-## Implementation checklist
-
-- [x] Apply the family-album visual direction to the compose and letter screens.
-- [x] Preserve the existing create, copy, stamp, validation, and error behaviors.
-- [x] Capture the rendered implementation and run the visual comparison.
-- [x] Verify the desktop layout after correcting the title wrapping.
-- [x] Verify the child-voice heading on compose and shared letter screens.
-
-final result: passed with follow-up for selected-photo state
+Actual iPhone hardware, Safari, microphone permission/device recording, and sharing into LINE were not exercised. These remain platform acceptance checks; this report does not claim them. Existing microphone-start failure cleanup behavior remains outside this UI change. Browser media support determines available output formats, with visible errors instead of silently dropping soundtrack. No deployment or merge performed.

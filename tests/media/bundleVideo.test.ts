@@ -308,7 +308,7 @@ describe("recordPaperCanvas audio lifecycle", () => {
   it("rejects an early recorder error immediately and cancels frames without stopping an inactive recorder", async () => {
     const track = { stop: vi.fn() };
     const stop = vi.fn();
-    let recorder: { state: string; onerror?: () => void };
+    const recorders: { state: string; onerror?: () => void }[] = [];
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
       drawImage: vi.fn(),
     } as unknown as CanvasRenderingContext2D);
@@ -324,7 +324,7 @@ describe("recordPaperCanvas audio lifecycle", () => {
         mimeType = "video/mp4";
         onerror?: () => void;
         constructor() {
-          recorder = this;
+          recorders.push(this);
         }
         start() {
           this.state = "recording";
@@ -334,8 +334,8 @@ describe("recordPaperCanvas audio lifecycle", () => {
     );
     vi.stubGlobal("requestAnimationFrame", () => {
       queueMicrotask(() => {
-        recorder.state = "inactive";
-        recorder.onerror?.();
+        recorders[0].state = "inactive";
+        recorders[0].onerror?.();
       });
       return 123;
     });
