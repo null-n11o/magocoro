@@ -259,6 +259,7 @@ small {
 }
 
 .photo-actions button {
+  min-width:44px;
   font-size:12px;
   padding:7px;
   flex:1;
@@ -487,9 +488,10 @@ small {
 }
 
 .stamp-frame {
-  background:#fff;
-  padding:7px;
-  border:1px dashed #cfc5b5;
+  background:transparent;
+  padding:0;
+  border:14px solid transparent;
+  border-image:url("./assets/postage-frame.png") 150 / 1 / 0 round;
   min-width:0;
   min-height:0;
   box-shadow:0 2px 3px #5b4b3115
@@ -888,4 +890,8 @@ small {
     transition:none!important
   }
 
+}
+
+@media(max-width:360px) {
+  .photo-actions { flex-direction:column; }
 }
