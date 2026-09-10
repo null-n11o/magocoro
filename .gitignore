@@ -17,3 +17,7 @@ Thumbs.db
 
 .wrangler
 .dev.vars*
+
+# Local worktree dependencies and verification inputs
+/node_modules
+/work/
