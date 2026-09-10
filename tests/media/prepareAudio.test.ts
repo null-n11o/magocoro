@@ -28,4 +28,12 @@ describe("prepareAudio", () => {
       prepareAudio(voice("audio/webm", 1024 * 1024 + 1), async () => 2),
     ).resolves.toEqual({ ok: false, reason: "too_large" });
   });
+
+  it("maps duration probe failure to unsupported", async () => {
+    await expect(
+      prepareAudio(voice("audio/webm", 100), async () => {
+        throw new Error("no_duration");
+      }),
+    ).resolves.toEqual({ ok: false, reason: "unsupported" });
+  });
 });

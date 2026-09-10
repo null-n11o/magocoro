@@ -14,7 +14,12 @@ export async function prepareAudio(
   measureDuration: (file: File) => Promise<number>,
 ): Promise<PrepareResult> {
   if (!AUDIO_TYPES.has(file.type)) return { ok: false, reason: "unsupported" };
-  const duration = await measureDuration(file);
+  let duration: number;
+  try {
+    duration = await measureDuration(file);
+  } catch {
+    return { ok: false, reason: "unsupported" };
+  }
   if (duration > MAX_MEDIA_SECONDS) return { ok: false, reason: "too_long" };
   if (file.size > HARD_AUDIO_BYTES) return { ok: false, reason: "too_large" };
   return { ok: true, file };

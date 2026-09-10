@@ -1,11 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
-import { prepareClip } from "../../src/media/prepareClip";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { prepareClip, transcodeClipTo720p } from "../../src/media/prepareClip";
 
 function video(type: string, size: number): File {
   return new File([new Uint8Array(size)], "a.mp4", { type });
 }
 
 describe("prepareClip", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("rejects clips longer than 30 seconds", async () => {
     const result = await prepareClip(
       video("video/mp4", 1000),
@@ -49,5 +53,42 @@ describe("prepareClip", () => {
     const bloated = video("video/webm", 8 * 1024 * 1024 + 1);
     const result = await prepareClip(original, async () => 8, async () => bloated);
     expect(result).toEqual({ ok: true, file: original });
+  });
+
+  it("keeps the original when transcode returns an empty file", async () => {
+    const original = video("video/mp4", 2000);
+    const empty = video("video/webm", 0);
+    const result = await prepareClip(original, async () => 8, async () => empty);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.file).toBe(original);
+  });
+
+  it("maps duration probe failure to unsupported", async () => {
+    await expect(
+      prepareClip(video("video/mp4", 1000), async () => {
+        throw new Error("load_failed");
+      }),
+    ).resolves.toEqual({ ok: false, reason: "unsupported" });
+  });
+
+  it("throws when transcode sees a video with no dimensions", async () => {
+    const originalCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation(((
+      tagName: string,
+      options?: string | ElementCreationOptions,
+    ) => {
+      if (tagName === "video") {
+        const el = originalCreate("video") as HTMLVideoElement;
+        Object.defineProperty(el, "videoWidth", { configurable: true, get: () => 0 });
+        Object.defineProperty(el, "videoHeight", { configurable: true, get: () => 0 });
+        el.play = () => Promise.resolve();
+        return el;
+      }
+      return originalCreate(tagName, options as ElementCreationOptions);
+    }) as typeof document.createElement);
+
+    await expect(transcodeClipTo720p(video("video/mp4", 2000))).rejects.toThrow(
+      "no_video",
+    );
   });
 });
