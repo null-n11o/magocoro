@@ -1,4 +1,4 @@
-import { MAX_MEDIA_SECONDS, type PrepareResult } from "./prepare";
+import { baseContentType, MAX_MEDIA_SECONDS, type PrepareResult } from "./prepare";
 
 export const AUDIO_TYPES = new Set([
   "audio/mp4",
@@ -13,7 +13,7 @@ export async function prepareAudio(
   file: File,
   measureDuration: (file: File) => Promise<number>,
 ): Promise<PrepareResult> {
-  if (!AUDIO_TYPES.has(file.type)) return { ok: false, reason: "unsupported" };
+  if (!AUDIO_TYPES.has(baseContentType(file.type))) return { ok: false, reason: "unsupported" };
   let duration: number;
   try {
     duration = await measureDuration(file);

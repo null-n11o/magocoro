@@ -27,6 +27,14 @@ describe("prepareClip", () => {
     ).resolves.toEqual({ ok: false, reason: "too_large" });
   });
 
+  it("accepts MediaRecorder webm types that include a codec parameter", async () => {
+    const file = video("video/webm;codecs=vp9", 1000);
+    await expect(prepareClip(file, async () => 8)).resolves.toEqual({
+      ok: true,
+      file,
+    });
+  });
+
   it("returns the transcoded file when transcode succeeds", async () => {
     const original = video("video/quicktime", 2000);
     const out = video("video/webm", 500);

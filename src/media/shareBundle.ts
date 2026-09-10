@@ -11,7 +11,15 @@ export async function shareOrSaveVideo(
     try {
       await deps.share(data);
       return "shared";
-    } catch {
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "name" in error &&
+        error.name === "AbortError"
+      ) {
+        return "shared";
+      }
       deps.save(file);
       return "saved";
     }

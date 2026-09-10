@@ -76,6 +76,14 @@ function isFile(value: FormDataEntryValue | null): value is File {
   return value instanceof File && value.size > 0;
 }
 
+function baseContentType(type: string): string {
+  return type.split(";")[0].trim().toLowerCase();
+}
+
+function isAllowedType(type: string, allowed: Set<string>): boolean {
+  return allowed.has(baseContentType(type));
+}
+
 function isLetterRecord(value: unknown, id: string): value is LetterRecord {
   if (!value || typeof value !== "object") return false;
   const record = value as Partial<LetterRecord>;
@@ -102,7 +110,7 @@ function isLetterRecord(value: unknown, id: string): value is LetterRecord {
     return false;
   }
   if (record.audio) {
-    if (!AUDIO_TYPES.has(record.audio.contentType)) return false;
+    if (!isAllowedType(record.audio.contentType, AUDIO_TYPES)) return false;
   }
   if (record.media.kind === "photos") {
     return (
@@ -113,7 +121,7 @@ function isLetterRecord(value: unknown, id: string): value is LetterRecord {
     );
   }
   if (record.media.kind === "clip") {
-    return CLIP_TYPES.has(record.media.clip.contentType);
+    return isAllowedType(record.media.clip.contentType, CLIP_TYPES);
   }
   return false;
 }
@@ -171,12 +179,15 @@ export async function createLetter(
       return { ok: false, status: 400 };
     }
   }
-  if (clipFile && (!CLIP_TYPES.has(clipFile.type) || clipFile.size > MAX_CLIP_BYTES)) {
+  if (
+    clipFile &&
+    (!isAllowedType(clipFile.type, CLIP_TYPES) || clipFile.size > MAX_CLIP_BYTES)
+  ) {
     return { ok: false, status: 400 };
   }
   if (
     audioFile &&
-    (!AUDIO_TYPES.has(audioFile.type) || audioFile.size > MAX_AUDIO_BYTES)
+    (!isAllowedType(audioFile.type, AUDIO_TYPES) || audioFile.size > MAX_AUDIO_BYTES)
   ) {
     return { ok: false, status: 400 };
   }
@@ -197,11 +208,11 @@ export async function createLetter(
     body,
     signature,
     media: clipFile
-      ? { kind: "clip", clip: { contentType: clipFile.type } }
+      ? { kind: "clip", clip: { contentType: baseContentType(clipFile.type) } }
       : { kind: "photos", photos: photos.map((file) => ({ contentType: file.type })) },
     stamps: { read: 0, cute: 0 },
   };
-  if (audioFile) record.audio = { contentType: audioFile.type };
+  if (audioFile) record.audio = { contentType: baseContentType(audioFile.type) };
 
   const keysToCleanup: string[] = [];
   try {
@@ -217,14 +228,14 @@ export async function createLetter(
       const key = clipKey(id);
       keysToCleanup.push(key);
       await env.LETTERS.put(key, await clipFile.arrayBuffer(), {
-        httpMetadata: { contentType: clipFile.type },
+        httpMetadata: { contentType: baseContentType(clipFile.type) },
       });
     }
     if (audioFile) {
       const key = audioKey(id);
       keysToCleanup.push(key);
       await env.LETTERS.put(key, await audioFile.arrayBuffer(), {
-        httpMetadata: { contentType: audioFile.type },
+        httpMetadata: { contentType: baseContentType(audioFile.type) },
       });
     }
     const key = jsonKey(id);

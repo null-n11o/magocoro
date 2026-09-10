@@ -1,4 +1,4 @@
-import { MAX_MEDIA_SECONDS, type PrepareResult } from "./prepare";
+import { baseContentType, MAX_MEDIA_SECONDS, type PrepareResult } from "./prepare";
 
 export const TARGET_CLIP_BYTES = 8 * 1024 * 1024;
 export const CLIP_TYPES = new Set([
@@ -12,7 +12,7 @@ export async function prepareClip(
   measureDuration: (file: File) => Promise<number>,
   transcode?: (file: File) => Promise<File>,
 ): Promise<PrepareResult> {
-  if (!CLIP_TYPES.has(file.type)) return { ok: false, reason: "unsupported" };
+  if (!CLIP_TYPES.has(baseContentType(file.type))) return { ok: false, reason: "unsupported" };
   let duration: number;
   try {
     duration = await measureDuration(file);

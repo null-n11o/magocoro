@@ -20,6 +20,14 @@ describe("prepareAudio", () => {
     });
   });
 
+  it("accepts MediaRecorder webm types that include a codec parameter", async () => {
+    const file = voice("audio/webm;codecs=opus", 2048);
+    await expect(prepareAudio(file, async () => 6)).resolves.toEqual({
+      ok: true,
+      file,
+    });
+  });
+
   it("rejects mp3 and files over 1MB", async () => {
     await expect(
       prepareAudio(voice("audio/mpeg", 100), async () => 2),

@@ -183,6 +183,25 @@ describe("ComposePage", () => {
     expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
   });
 
+  it("ignores a second record tap while getUserMedia is in flight", async () => {
+    const user = userEvent.setup();
+    const getUserMedia = vi.fn(
+      () =>
+        new Promise<MediaStream>(() => {
+          /* hang until the test ends */
+        }),
+    );
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia },
+    });
+    const api: LetterApi = { createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() };
+    renderCompose(api);
+    await user.click(screen.getByRole("button", { name: "録音する" }));
+    await user.click(screen.getByRole("button", { name: "録音する" }));
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+  });
+
   it("navigates after a successful create", async () => {
     const user = userEvent.setup();
     const api: LetterApi = {

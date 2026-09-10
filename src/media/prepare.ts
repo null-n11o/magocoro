@@ -5,3 +5,7 @@ export type PrepareErr = {
 };
 export type PrepareResult = PrepareOk | PrepareErr;
 export const MAX_MEDIA_SECONDS = 30;
+
+export function baseContentType(type: string): string {
+  return type.split(";")[0].trim().toLowerCase();
+}

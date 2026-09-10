@@ -51,6 +51,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<number | null>(null);
+  const recordStartRef = useRef(false);
 
   function getPhotoKey(file: File) {
     const existingKey = photoKeys.current.get(file);
@@ -169,6 +170,8 @@ export function ComposePage({ api }: { api: LetterApi }) {
       recorderRef.current?.stop();
       return;
     }
+    if (recordStartRef.current) return;
+    recordStartRef.current = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -179,6 +182,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
       recorder.onstop = () => {
         stream.getTracks().forEach((track) => track.stop());
         if (recordTimerRef.current !== null) window.clearTimeout(recordTimerRef.current);
+        recordStartRef.current = false;
         setRecording(false);
         const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
         void onAudioFile(
@@ -192,6 +196,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
         if (recorder.state === "recording") recorder.stop();
       }, 30_000);
     } catch {
+      recordStartRef.current = false;
       setMediaError("録音できません");
     }
   }

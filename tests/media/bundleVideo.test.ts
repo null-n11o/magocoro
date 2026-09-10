@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  addParentAudioTrack,
   photoDurationsMs,
   planClipBundle,
   renderPhotoBundle,
@@ -43,5 +44,72 @@ describe("bundleVideo", () => {
     expect(blob.size).toBeGreaterThan(0);
     expect(blob.type).toMatch(/^video\//);
     expect(record).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("addParentAudioTrack", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function stubAudio(options: {
+    captureStream?: () => MediaStream | undefined;
+    play?: () => Promise<void>;
+  }) {
+    const originalCreate = document.createElement.bind(document);
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:audio");
+    vi.spyOn(document, "createElement").mockImplementation(((
+      tagName: string,
+      elementOptions?: string | ElementCreationOptions,
+    ) => {
+      const el = originalCreate(tagName, elementOptions as ElementCreationOptions);
+      if (tagName === "audio") {
+        Object.defineProperty(el, "readyState", {
+          configurable: true,
+          get: () => HTMLMediaElement.HAVE_METADATA,
+        });
+        (el as HTMLAudioElement).play = options.play ?? (() => Promise.resolve());
+        (
+          el as HTMLMediaElement & { captureStream?: () => MediaStream }
+        ).captureStream = options.captureStream as () => MediaStream;
+      }
+      return el;
+    }) as typeof document.createElement);
+  }
+
+  it("throws when parent audio is requested but no track can be captured", async () => {
+    const addTrack = vi.fn();
+    const stream = { addTrack } as unknown as MediaStream;
+    stubAudio({
+      captureStream: () => ({ getAudioTracks: () => [] }) as unknown as MediaStream,
+    });
+
+    await expect(
+      addParentAudioTrack(stream, new Blob([new Uint8Array(8)], { type: "audio/webm" })),
+    ).rejects.toThrow("no_parent_audio");
+    expect(addTrack).not.toHaveBeenCalled();
+  });
+
+  it("attaches a captured track only after metadata and play", async () => {
+    const order: string[] = [];
+    const track = { kind: "audio" } as MediaStreamTrack;
+    const addTrack = vi.fn();
+    const stream = { addTrack } as unknown as MediaStream;
+    stubAudio({
+      play: async () => {
+        order.push("play");
+      },
+      captureStream: () => {
+        order.push("capture");
+        return { getAudioTracks: () => [track] } as unknown as MediaStream;
+      },
+    });
+
+    await addParentAudioTrack(
+      stream,
+      new Blob([new Uint8Array(8)], { type: "audio/webm" }),
+    );
+    expect(order).toEqual(["play", "capture"]);
+    expect(addTrack).toHaveBeenCalledWith(track);
   });
 });

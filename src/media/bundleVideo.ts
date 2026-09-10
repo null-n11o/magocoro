@@ -25,6 +25,31 @@ export function planClipBundle(hasParentAudio: boolean): {
   };
 }
 
+export async function addParentAudioTrack(
+  stream: MediaStream,
+  audioBlob: Blob,
+): Promise<void> {
+  const audio = document.createElement("audio");
+  audio.src = URL.createObjectURL(audioBlob);
+  if (audio.readyState < HTMLMediaElement.HAVE_METADATA) {
+    await new Promise<void>((resolve, reject) => {
+      audio.addEventListener("loadedmetadata", () => resolve(), { once: true });
+      audio.addEventListener(
+        "error",
+        () => reject(new Error("no_parent_audio")),
+        { once: true },
+      );
+    });
+  }
+  await audio.play();
+  const captured = (
+    audio as HTMLMediaElement & { captureStream?: () => MediaStream }
+  ).captureStream?.();
+  const track = captured?.getAudioTracks()[0];
+  if (!track) throw new Error("no_parent_audio");
+  stream.addTrack(track);
+}
+
 export async function renderPhotoBundle(input: {
   frames: Array<{ source: CanvasImageSource; durationMs: number }>;
   audio?: Blob;
@@ -58,12 +83,7 @@ export async function recordTimeline(session: {
   if (!ctx) throw new Error("no_canvas");
   const stream = canvas.captureStream(24);
   if (session.audio) {
-    const audio = document.createElement("audio");
-    audio.src = URL.createObjectURL(session.audio);
-    const audioStream = (audio as HTMLMediaElement & { captureStream?: () => MediaStream }).captureStream?.();
-    const track = audioStream?.getAudioTracks()[0];
-    if (track) stream.addTrack(track);
-    void audio.play();
+    await addParentAudioTrack(stream, session.audio);
   }
   const recorder = new MediaRecorder(stream);
   const chunks: Blob[] = [];
@@ -103,12 +123,7 @@ export async function recordClipBundle(input: {
   if (!ctx) throw new Error("no_canvas");
   const stream = canvas.captureStream(24);
   if (plan.useParentAudio && input.parentAudio) {
-    const audio = document.createElement("audio");
-    audio.src = URL.createObjectURL(input.parentAudio);
-    const audioStream = (audio as HTMLMediaElement & { captureStream?: () => MediaStream }).captureStream?.();
-    const track = audioStream?.getAudioTracks()[0];
-    if (track) stream.addTrack(track);
-    void audio.play();
+    await addParentAudioTrack(stream, input.parentAudio);
   } else {
     const clipAudio = (video as HTMLVideoElement & { captureStream?: () => MediaStream }).captureStream?.();
     const track = clipAudio?.getAudioTracks()[0];

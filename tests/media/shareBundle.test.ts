@@ -32,6 +32,21 @@ describe("shareOrSaveVideo", () => {
     ).resolves.toBe("saved");
     expect(save).toHaveBeenCalledTimes(2);
   });
+
+  it("does not save when the user cancels the share sheet", async () => {
+    const save = vi.fn();
+    const abort = new DOMException("The operation was aborted.", "AbortError");
+    await expect(
+      shareOrSaveVideo(file, {
+        canShare: () => true,
+        share: async () => {
+          throw abort;
+        },
+        save,
+      }),
+    ).resolves.toBe("shared");
+    expect(save).not.toHaveBeenCalled();
+  });
 });
 
 describe("downloadFile", () => {

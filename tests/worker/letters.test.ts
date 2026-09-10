@@ -92,6 +92,53 @@ describe("letters api", () => {
     expect(await stamped.json()).toEqual({ stamps: { read: 1, cute: 0 } });
   });
 
+  it("accepts MediaRecorder codec-parameter mime types and stores the base type", async () => {
+    const form = textForm();
+    form.set("clip", clip("video/webm;codecs=vp9", 64, "a.webm"));
+    form.set("audio", audio("audio/webm;codecs=opus", 32, "v.webm"));
+    const res = await post(form);
+    expect(res.status).toBe(201);
+    const { id } = (await res.json()) as { id: string };
+
+    const got = await exports.default.fetch(
+      new Request(`http://example.com/api/letters/${id}`),
+    );
+    expect(got.status).toBe(200);
+
+    const clipRes = await exports.default.fetch(
+      new Request(`http://example.com/api/letters/${id}/clip`),
+    );
+    expect(clipRes.status).toBe(200);
+    expect(clipRes.headers.get("content-type")).toBe("video/webm");
+
+    const audioRes = await exports.default.fetch(
+      new Request(`http://example.com/api/letters/${id}/audio`),
+    );
+    expect(audioRes.status).toBe(200);
+    expect(audioRes.headers.get("content-type")).toBe("audio/webm");
+  });
+
+  it("serves a stored letter whose clip and audio types include codec parameters", async () => {
+    const id = "l_abababababababababababababababab";
+    const record = {
+      id,
+      createdAt: "2026-09-08T12:00:00.000Z",
+      expiresAt: "2026-12-07T12:00:00.000Z",
+      addressTo: "じいじ、ばあばへ",
+      body: "きょうね、たてたよ",
+      signature: "はると",
+      media: { kind: "clip" as const, clip: { contentType: "video/webm;codecs=vp9" } },
+      audio: { contentType: "audio/webm;codecs=opus" },
+      stamps: { read: 0, cute: 0 },
+    };
+    await env.LETTERS.put(`letters/${id}.json`, JSON.stringify(record));
+
+    const got = await exports.default.fetch(
+      new Request(`http://example.com/api/letters/${id}`),
+    );
+    expect(got.status).toBe(200);
+  });
+
   it("creates a clip letter with optional audio and serves both bytes", async () => {
     const form = textForm();
     form.set("clip", clip());
