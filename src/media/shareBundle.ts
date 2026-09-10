@@ -33,10 +33,10 @@ export function downloadFile(file: File): void {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = file.name;
-  document.body.append(anchor);
+  document.body.appendChild(anchor);
   anchor.click();
   window.setTimeout(() => {
-    anchor.remove();
+    document.body.removeChild(anchor);
     URL.revokeObjectURL(url);
   }, 0);
 }
