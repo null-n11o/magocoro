@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import type { LetterApi, LetterPublic, StampKind } from "../api/types";
 import botanicalSprig from "../assets/botanical-sprig.png";
-
-type LetterLocationState = {
-  fromCompose?: boolean;
-};
 
 type View =
   | { status: "loading" }
@@ -27,8 +23,6 @@ function postmark(iso: string): string {
 
 export function LetterPage({ api }: { api: LetterApi }) {
   const { id = "" } = useParams();
-  const location = useLocation();
-  const isSender = (location.state as LetterLocationState | null)?.fromCompose === true;
   const [view, setView] = useState<View>({ status: "loading" });
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -122,7 +116,6 @@ export function LetterPage({ api }: { api: LetterApi }) {
   }
 
   const { letter } = view;
-  const photoUrls = letter.media.kind === "photos" ? letter.media.photoUrls : [];
 
   return (
     <main className="page-shell letter-shell">
@@ -148,38 +141,55 @@ export function LetterPage({ api }: { api: LetterApi }) {
         </header>
 
         <article className="letter-paper" aria-label="お手紙">
-          <div className="letter-photo-mat" role="group" aria-label="手紙の写真">
-            <div className={`letter-photo-grid photo-count-${photoUrls.length}`}>
-              {photoUrls.map((src, n) => (
-                <img
-                  key={src}
-                  src={src}
-                  alt={`手紙の写真 ${n + 1}`}
-                  className="stamp-frame letter-photo"
-                />
-              ))}
-            </div>
+          <div
+            className="letter-photo-mat"
+            role="group"
+            aria-label={letter.media.kind === "photos" ? "手紙の写真" : undefined}
+          >
+            {letter.media.kind === "photos" ? (
+              <div className={`letter-photo-grid photo-count-${letter.media.photoUrls.length}`}>
+                {letter.media.photoUrls.map((src, n) => (
+                  <img
+                    key={src}
+                    src={src}
+                    alt={`手紙の写真 ${n + 1}`}
+                    className="stamp-frame letter-photo"
+                  />
+                ))}
+              </div>
+            ) : (
+              <video
+                className="stamp-frame letter-clip"
+                src={letter.media.clipUrl}
+                controls
+                playsInline
+                aria-label="手紙の動画"
+              />
+            )}
           </div>
+          {letter.audioUrl ? (
+            <audio className="letter-audio" src={letter.audioUrl} controls aria-label="手紙の声" />
+          ) : null}
           <p className="letter-address">{letter.addressTo}</p>
           <p className="letter-body">{letter.body}</p>
           <p className="letter-signature">{letter.signature}</p>
         </article>
 
-        {isSender ? (
-          <section className="share-section" aria-label="手紙を共有する">
-            <p className="share-note">このリンクをLINEに貼ると、相手のスマホでも開けます</p>
-            <button type="button" onClick={onCopy} className="secondary-button">
-              リンクをコピー
-            </button>
-            {copied ? <p className="feedback-copy">コピーしました</p> : null}
-            {copyFailed ? (
-              <div className="copy-error">
-                <p>コピーできませんでした。下のURLを長押ししてコピーしてください</p>
-                <p className="copy-url">{window.location.href}</p>
-              </div>
-            ) : null}
-          </section>
-        ) : null}
+        <section className="share-section" aria-label="手紙を共有する">
+          <p className="share-note">
+            このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます
+          </p>
+          <button type="button" onClick={onCopy} className="secondary-button">
+            リンクをコピー
+          </button>
+          {copied ? <p className="feedback-copy">コピーしました</p> : null}
+          {copyFailed ? (
+            <div className="copy-error">
+              <p>コピーできませんでした。下のURLを長押ししてコピーしてください</p>
+              <p className="copy-url">{window.location.href}</p>
+            </div>
+          ) : null}
+        </section>
 
         <section className="reply-section" aria-labelledby="reply-heading">
           <div className="reply-heading-row">

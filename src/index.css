@@ -745,6 +745,16 @@ button {
   object-fit: cover;
 }
 
+.letter-clip,
+.letter-audio {
+  width: 100%;
+  display: block;
+}
+
+.letter-audio {
+  margin: 0.75rem 0 0;
+}
+
 .letter-address {
   margin: 1.8rem 0 0;
   padding-bottom: 0.75rem;

@@ -58,10 +58,38 @@ describe("LetterPage", () => {
     expect(screen.getByRole("article", { name: "お手紙" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "手紙の写真" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "このお手紙に返事をする" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
+  });
+
+  it("plays a clip and optional audio without autoplay", async () => {
+    const clipLetter: LetterPublic = {
+      ...letter,
+      media: { kind: "clip", clipUrl: `/api/letters/${letter.id}/clip` },
+      audioUrl: `/api/letters/${letter.id}/audio`,
+    };
+    renderLetter(
+      apiWithLetter({
+        getLetter: vi.fn().mockResolvedValue({ status: "ok", letter: clipLetter }),
+      }),
+    );
+    const video = await screen.findByLabelText("手紙の動画");
+    expect(video.tagName).toBe("VIDEO");
+    expect(video).toHaveAttribute("src", clipLetter.media.kind === "clip" ? clipLetter.media.clipUrl : "");
+    expect(video).not.toHaveAttribute("autoPlay");
+    const audio = screen.getByLabelText("手紙の声");
+    expect(audio.tagName).toBe("AUDIO");
+    expect(audio).toHaveAttribute("src", clipLetter.audioUrl);
+    expect(audio).not.toHaveAttribute("autoPlay");
+  });
+
+  it("shows the copy note with the 90-day closing line", async () => {
+    renderLetter(apiWithLetter());
     expect(
-      screen.queryByText("このリンクをLINEに貼ると、相手のスマホでも開けます"),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "リンクをコピー" })).not.toBeInTheDocument();
+      await screen.findByText(
+        "このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
   });
 
   it("renders letter content and increments stamps", async () => {
@@ -175,10 +203,10 @@ describe("LetterPage", () => {
       value: { writeText },
       configurable: true,
     });
-    renderLetter(apiWithLetter(), letter.id, { fromCompose: true });
+    renderLetter(apiWithLetter());
     await screen.findByText("じいじ、ばあばへ");
     expect(
-      screen.getByText("このリンクをLINEに貼ると、相手のスマホでも開けます"),
+      screen.getByText("このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます"),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "リンクをコピー" }));
     expect(writeText).toHaveBeenCalled();
@@ -191,7 +219,7 @@ describe("LetterPage", () => {
       value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
       configurable: true,
     });
-    renderLetter(apiWithLetter(), letter.id, { fromCompose: true });
+    renderLetter(apiWithLetter());
     await screen.findByText("じいじ、ばあばへ");
     await user.click(screen.getByRole("button", { name: "リンクをコピー" }));
     expect(
