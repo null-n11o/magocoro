@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 「作る」画面を、写真とことばで祖父母へ成長を届ける体験がひと目で伝わる、静かな和便箋のUIへ改修する。
+**Goal:** 「作る」画面を、写真とことばで祖父母へ成長を届ける体験がひと目で伝わり、触れるとやさしく応える静かな和便箋UIへ改修する。
 
-**Architecture:** `ComposePage` の保存処理・入力状態・`LetterApi` 境界は変えず、表示構造と `src/index.css` のスタイルだけを更新する。写真は常に最大3枠が理解できる構成にし、各入力を1〜4の手順として見せる。日付を持たない作成画面には消印を表示せず、`createdAt` を持つ手紙画面の実日付入り消印は維持する。
+**Architecture:** `ComposePage` の保存処理・入力状態・`LetterApi` 境界は変えず、表示構造と `src/index.css` のスタイルを更新する。写真は常に最大3枠が理解できる構成にし、各入力を1〜4の手順として見せる。動きはCSS中心の短いマイクロインタラクションに限定し、既存の `submitting` 状態だけを保存中表示へ利用する。日付を持たない作成画面には消印を表示せず、`createdAt` を持つ手紙画面の実日付入り消印は維持する。
 
 **Tech Stack:** React 19 + TypeScript + Tailwind CSS v4 + Vitest + Testing Library。
 
@@ -16,6 +16,8 @@
 - 地 `#f7f2e9`、面 `#fffdf8`、本文 `#33302a`、補助 `#8a7f72`、罫線 `#ddd2c2`、強調（朱） `#c4543a`。切手風フレームは白縁＋波線。
 - 紫・ネオン・金グラデ・飾り絵文字は禁止。本文中の絵文字は親が書いた場合のみ素通し。
 - 見出しと本文は Noto Sans JP。動き150–400ms。`prefers-reduced-motion` で無効化。
+- 初回表示、写真追加、focus、hover、押下、エラー表示だけを動かす。常時動く装飾、バウンド、パララックス、過度な拡大縮小は使わない。
+- アニメーションライブラリやアイコンライブラリを追加せず、CSSと既存のReact状態だけで実装する。
 - タップ面44px以上。ページ全体の横スクロール禁止。最大幅モバイルカラム（`max-w-lg`）中央寄せ。
 - 写真は JPEG / PNG / WebP、1〜3枚、1枚10MBまで。
 - 保存処理、入力検証、写真の削除・並べ替え、エラー時の入力保持、成功後の遷移は変更しない。
@@ -40,8 +42,8 @@ docs/superpowers/assets/
 docs/superpowers/plans/
   2026-09-10-magocoro-compose-ui-refresh.md     # 本計画
 src/
-  compose/ComposePage.tsx                       # 手順構造、写真3枠、表示文言
-  index.css                                     # 和便箋のレイアウトと視覚表現
+  compose/ComposePage.tsx                       # 手順構造、写真3枠、表示文言、保存中状態
+  index.css                                     # 和便箋のレイアウトとマイクロインタラクション
 tests/
   compose/ComposePage.test.tsx                  # 構造、消印非表示、既存挙動の回帰テスト
 ```
@@ -448,6 +450,276 @@ git commit -m "style: refine compose screen as quiet stationery"
 
 ---
 
+### Task 2: 紙と写真に沿ったマイクロインタラクションを加える
+
+**Files:**
+- Modify: `tests/compose/ComposePage.test.tsx`
+- Modify: `src/compose/ComposePage.tsx`
+- Modify: `src/index.css`
+
+**Interfaces:**
+- Consumes: Task 1の `.compose-header`、`.compose-step`、`.step-index`、`.photo-card`、`.photo-picker` と、既存の `submitting: boolean`。
+- Produces: 初回の段階表示、写真を置く動き、focus/hover/押下フィードバック、短いエラー表示、保存中の `aria-busy="true"` と「お手紙をつくっています…」表示。
+- Preserves: `prefers-reduced-motion: reduce` では遅延を含む動きを即時化し、操作可否とAPI呼び出し回数を変えない。
+
+- [ ] **Step 1: 保存中フィードバックの失敗テストを書く**
+
+`tests/compose/ComposePage.test.tsx` に次のテストを追加する。
+
+```tsx
+it("shows a busy label while the letter is being created", async () => {
+  const user = userEvent.setup();
+  let resolveCreate!: (value: { id: string }) => void;
+  const createLetter = vi.fn(
+    () =>
+      new Promise<{ id: string }>((resolve) => {
+        resolveCreate = resolve;
+      }),
+  );
+  const api: LetterApi = {
+    createLetter,
+    getLetter: vi.fn(),
+    addStamp: vi.fn(),
+  };
+  renderCompose(api);
+
+  await user.upload(screen.getByLabelText("写真"), jpeg());
+  await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+  await user.type(screen.getByLabelText("署名"), "はると");
+  await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
+
+  const busyButton = screen.getByRole("button", {
+    name: "お手紙をつくっています…",
+  });
+  expect(busyButton).toBeDisabled();
+  expect(busyButton).toHaveAttribute("aria-busy", "true");
+  expect(createLetter).toHaveBeenCalledTimes(1);
+
+  resolveCreate({ id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" });
+  expect(await screen.findByText("手紙ページ 送り側")).toBeInTheDocument();
+});
+```
+
+- [ ] **Step 2: テストが意図した理由で失敗することを確認する**
+
+Run: `npx vitest run tests/compose/ComposePage.test.tsx -t "shows a busy label"`
+
+Expected: FAIL。ボタンが保存中も「お手紙をつくる」のままで、`aria-busy` がないことが原因になっている。
+
+- [ ] **Step 3: 保存中のボタン文言と状態を実装する**
+
+`ComposePage.tsx` の送信ボタンを次へ置き換える。
+
+```tsx
+<button
+  type="submit"
+  disabled={Boolean(reason) || submitting}
+  aria-busy={submitting}
+  className="primary-button"
+>
+  {submitting ? "お手紙をつくっています…" : "お手紙をつくる"}
+</button>
+```
+
+Run: `npx vitest run tests/compose/ComposePage.test.tsx -t "shows a busy label"`
+
+Expected: PASS。保存中はボタンがdisabledかつbusyになり、Promise解決後は従来どおり手紙画面へ進む。
+
+- [ ] **Step 4: 4つの手順へ順序クラスを付ける**
+
+Task 1で作成した4つのsectionのclassNameを次の値へ変更する。
+
+```tsx
+<section className="album-section compose-step step-one">
+<section className="field-group compose-step step-two">
+<section className="field-group compose-step step-three">
+<section className="field-group compose-step step-four">
+```
+
+順序クラスは初回表示のdelayだけに利用し、手順の意味や入力値の管理には利用しない。
+
+- [ ] **Step 5: 初回表示と写真追加の動きを実装する**
+
+`src/index.css` に次を追加する。
+
+```css
+@keyframes compose-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes photo-place {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.compose-header {
+  animation: compose-reveal 220ms ease-out both;
+}
+
+.compose-step {
+  animation: compose-reveal 240ms ease-out both;
+}
+
+.step-one {
+  animation-delay: 0ms;
+}
+
+.step-two {
+  animation-delay: 40ms;
+}
+
+.step-three {
+  animation-delay: 80ms;
+}
+
+.step-four {
+  animation-delay: 120ms;
+}
+
+.photo-card {
+  animation: photo-place 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.form-error,
+.form-hint {
+  animation: feedback-in 180ms ease-out both;
+}
+```
+
+各animationの継続時間は180〜260ms、最後の手順まで含む初回表示は360ms以内に収める。初回表示はページを開いたときの1回だけで、ループさせない。
+
+- [ ] **Step 6: focus、hover、押下のフィードバックを実装する**
+
+`src/index.css` に次を追加する。
+
+```css
+.compose-step .step-index {
+  transition: background-color 200ms ease, color 200ms ease, transform 200ms ease;
+}
+
+.compose-step:focus-within .step-index {
+  background: var(--color-accent);
+  color: var(--color-surface);
+  transform: scale(1.04);
+}
+
+.compose-step:focus-within {
+  border-top-color: rgb(196 84 58 / 0.42);
+}
+
+.photo-slot {
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+}
+
+@media (hover: hover) {
+  .photo-picker:hover,
+  .photo-card:hover {
+    border-color: rgb(196 84 58 / 0.55);
+    box-shadow: 0 0 0 1px rgb(196 84 58 / 0.35),
+      0 0.55rem 1.1rem rgb(51 48 42 / 0.11);
+    transform: translateY(-2px);
+  }
+}
+
+.photo-picker:focus-visible,
+.photo-action:focus-visible {
+  border-color: var(--color-accent);
+}
+
+.primary-button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.995);
+}
+
+.primary-button[aria-busy="true"] {
+  cursor: wait;
+}
+```
+
+hoverはhover可能な端末だけに適用する。ドラッグ中の `.is-dragging` と `.is-drag-over` は既存指定を優先し、写真が指から離れたように見えない範囲の2px移動に留める。
+
+- [ ] **Step 7: reduced motionで遅延を含む動きを止める**
+
+既存の `@media (prefers-reduced-motion: reduce)` 内を次の内容にする。
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-delay: 0s !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+```
+
+これにより、初回表示のstagger delayも残らず、情報と操作結果は即時に表示される。
+
+- [ ] **Step 8: 動きと操作状態を目視確認する**
+
+Run: `npm run dev`
+
+通常設定とOSの「視差効果を減らす／動きを減らす」を有効にした設定の両方で `/` を確認する。
+
+- 通常時は見出しと手順が一度だけ順に現れ、合計360ms以内に静止する。
+- 写真追加時は対象写真だけが紙の上へ置かれるように現れる。
+- keyboard focusでは対象手順の番号が朱色になり、focus ringが消えない。
+- hover可能な端末だけで写真枠が最大2px持ち上がる。
+- 主ボタンは押下時だけ沈み、保存中は連打できず文言が変わる。
+- エラー文は180msで現れ、入力値を消さない。
+- reduced motion時はstagger、移動、拡大縮小が視認できない速度で完了する。
+- 常時動く装飾、バウンド、パララックスが存在しない。
+
+- [ ] **Step 9: 全体検証を通す**
+
+Run: `npm test`
+
+Expected: UIテストとWorkerテストがすべてPASS。
+
+Run: `npm run lint`
+
+Expected: oxlintエラーなし。
+
+Run: `npm run build`
+
+Expected: TypeScriptの型チェックとVite本番ビルドが成功。
+
+- [ ] **Step 10: マイクロインタラクションをコミットする**
+
+```bash
+git add src/compose/ComposePage.tsx src/index.css tests/compose/ComposePage.test.tsx
+git commit -m "style: add gentle compose interactions"
+```
+
+---
+
 ## Acceptance Checklist
 
 - 作成画面の第一印象が汎用フォームではなく「写真とことばを入れる和便箋」になっている。
@@ -456,6 +728,10 @@ git commit -m "style: refine compose screen as quiet stationery"
 - 実日付を持つ手紙画面では従来どおり消印を出す。
 - 写真1〜3枚、本文1〜1000字、署名1〜20字の仕様と保存APIは変わらない。
 - 写真の削除、pointer/keyboard並べ替え、保存失敗時の入力保持が維持される。
+- 初回表示、写真追加、focus、hover、押下、エラー表示が180〜360msの穏やかな動きで応答する。
+- 保存中はボタンが「お手紙をつくっています…」となり、`aria-busy="true"` とdisabledを持つ。
+- `prefers-reduced-motion` ではanimation delayを含む動きが即時化される。
+- 常時動く装飾、バウンド、パララックス、過度な拡大縮小がない。
 - `390px` と `512px` の両方で横スクロールがなく、主要タップ面は44px以上。
 - 色、書体、動き、禁止装飾が正本Specの制約を満たす。
 - `npm test`、`npm run lint`、`npm run build` がすべて成功する。
