@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -35,6 +36,18 @@ export function ComposePage({ api }: { api: LetterApi }) {
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const photoKeys = useRef(new WeakMap<File, string>());
+  const nextPhotoKey = useRef(0);
+  const [placingPhotoKeys, setPlacingPhotoKeys] = useState<Set<string>>(() => new Set());
+
+  function getPhotoKey(file: File) {
+    const existingKey = photoKeys.current.get(file);
+    if (existingKey) return existingKey;
+    const key = `photo-${nextPhotoKey.current}`;
+    nextPhotoKey.current += 1;
+    photoKeys.current.set(file, key);
+    return key;
+  }
 
   useEffect(() => {
     const urls = photos.map((file) => URL.createObjectURL(file));
@@ -57,6 +70,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
     if (!files) return;
     setPhotoError("");
     const next = [...photos];
+    const addedPhotoKeys: string[] = [];
     for (const file of Array.from(files)) {
       if (!ALLOWED.has(file.type)) {
         setPhotoError("この写真は使えません");
@@ -68,8 +82,12 @@ export function ComposePage({ api }: { api: LetterApi }) {
       }
       if (next.length >= 3) break;
       next.push(file);
+      addedPhotoKeys.push(getPhotoKey(file));
     }
     setPhotos(next);
+    if (addedPhotoKeys.length > 0) {
+      setPlacingPhotoKeys((current) => new Set([...current, ...addedPhotoKeys]));
+    }
   }
 
   function reorderPhotos(from: number, to: number) {
@@ -78,8 +96,18 @@ export function ComposePage({ api }: { api: LetterApi }) {
   }
 
   function removePhoto(index: number) {
+    const removedPhoto = photos[index];
     setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index));
     setPhotoUrls((current) => current.filter((_, photoIndex) => photoIndex !== index));
+    if (removedPhoto) {
+      const removedKey = getPhotoKey(removedPhoto);
+      setPlacingPhotoKeys((current) => {
+        if (!current.has(removedKey)) return current;
+        const next = new Set(current);
+        next.delete(removedKey);
+        return next;
+      });
+    }
     setPhotoError("");
   }
 
@@ -131,6 +159,8 @@ export function ComposePage({ api }: { api: LetterApi }) {
     }
   }
 
+  const emptyPhotoSlotCount = Math.max(0, 2 - photos.length);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (reason || submitting) return;
@@ -161,75 +191,95 @@ export function ComposePage({ api }: { api: LetterApi }) {
             <h1 className="wordmark">Magocoro</h1>
             <span className="brand-wave" aria-hidden="true" />
           </div>
-          <span className="compose-seal" aria-hidden="true" />
           <h2 className="compose-title">こんなことがあったよ</h2>
+          <p className="compose-intro">
+            写真といっしょに、ことばでつながる、Webのお手紙です。
+          </p>
         </header>
 
         <form onSubmit={onSubmit} className="letter-form">
-          <section className="album-section">
-            <div className="section-heading-row">
-              <div>
-                <h2 id="photos-heading" className="section-title">
-                  写真
-                </h2>
+          <section className="album-section compose-step step-one">
+            <div className="step-heading-row">
+              <span className="step-index" aria-hidden="true">
+                1
+              </span>
+              <div className="step-heading-copy">
+                <div className="section-heading-row">
+                  <h2 id="photos-heading" className="section-title">
+                    写真
+                  </h2>
+                  <span className="section-count">{photos.length}/3</span>
+                </div>
                 <p className="section-helper">写真は1〜3枚まで。1枚10MBまで</p>
               </div>
-              <span className="section-count">{photos.length}/3</span>
             </div>
-            <div
-              className={`photo-mat ${photos.length > 0 ? "has-photos" : ""}`}
-              role="group"
-              aria-label="写真を飾る"
-            >
-              {photos.length > 0 ? (
-                <div className={`photo-grid photo-count-${photos.length}`} aria-label="選んだ写真">
-                  {photos.map((file, i) => (
-                    <div
-                      key={`${file.name}-${i}`}
-                      className={[
-                        "photo-card",
-                        draggingIndex === i ? "is-dragging" : "",
-                        dragOverIndex === i && draggingIndex !== i ? "is-drag-over" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                      data-photo-index={i}
+
+            <div className="photo-slot-grid" role="group" aria-label="写真を飾る">
+              {photos.map((file, i) => (
+                <div
+                  key={getPhotoKey(file)}
+                  className={[
+                    "photo-card",
+                    "photo-slot",
+                    placingPhotoKeys.has(getPhotoKey(file)) ? "is-placing" : "",
+                    draggingIndex === i ? "is-dragging" : "",
+                    dragOverIndex === i && draggingIndex !== i ? "is-drag-over" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  data-photo-index={i}
+                  onAnimationEnd={() => {
+                    const placedKey = getPhotoKey(file);
+                    setPlacingPhotoKeys((current) => {
+                      if (!current.has(placedKey)) return current;
+                      const next = new Set(current);
+                      next.delete(placedKey);
+                      return next;
+                    });
+                  }}
+                >
+                  <img
+                    src={photoUrls[i]}
+                    alt={`選んだ写真 ${i + 1}`}
+                    className="photo-preview"
+                  />
+                  <div className="photo-actions">
+                    <button
+                      type="button"
+                      className="photo-action photo-drag-handle"
+                      aria-label={`写真${i + 1}を並べ替え`}
+                      onPointerDown={(event) => onPhotoPointerDown(i, event)}
+                      onPointerMove={(event) => onPhotoPointerMove(i, event)}
+                      onPointerUp={(event) => endPhotoPointerDrag(i, event)}
+                      onPointerCancel={(event) => cancelPhotoPointerDrag(i, event)}
+                      onKeyDown={(event) => onPhotoHandleKeyDown(i, event)}
                     >
-                      <img
-                        src={photoUrls[i]}
-                        alt={`選んだ写真 ${i + 1}`}
-                        className="photo-preview"
-                      />
-                      <div className="photo-actions">
-                        <button
-                          type="button"
-                          className="photo-action photo-drag-handle"
-                          aria-label={`写真${i + 1}を並べ替え`}
-                          onPointerDown={(event) => onPhotoPointerDown(i, event)}
-                          onPointerMove={(event) => onPhotoPointerMove(i, event)}
-                          onPointerUp={(event) => endPhotoPointerDrag(i, event)}
-                          onPointerCancel={(event) => cancelPhotoPointerDrag(i, event)}
-                          onKeyDown={(event) => onPhotoHandleKeyDown(i, event)}
-                        >
-                          移動
-                        </button>
-                        <button
-                          type="button"
-                          className="photo-action photo-remove-button"
-                          aria-label={`写真${i + 1}を削除`}
-                          onClick={() => removePhoto(i)}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                      移動
+                    </button>
+                    <button
+                      type="button"
+                      className="photo-action photo-remove-button"
+                      aria-label={`写真${i + 1}を削除`}
+                      onClick={() => removePhoto(i)}
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
+              ))}
+
+              {photos.length < 3 ? (
+                <label htmlFor="photos" className="photo-picker photo-slot">
+                  <span className="photo-picker-mark" aria-hidden="true">
+                    ＋
+                  </span>
+                  <span className="photo-picker-title">写真をえらぶ</span>
+                </label>
               ) : null}
-              <label htmlFor="photos" className="photo-picker">
-                <span className="photo-picker-title">写真をえらぶ</span>
-                <span className="photo-picker-detail">JPEG / PNG / WebP</span>
-              </label>
+
+              {Array.from({ length: emptyPhotoSlotCount }, (_, index) => (
+                <span key={index} className="photo-slot photo-slot-empty" aria-hidden="true" />
+              ))}
             </div>
             <input
               id="photos"
@@ -243,28 +293,38 @@ export function ComposePage({ api }: { api: LetterApi }) {
             {photoError ? <p className="form-error">{photoError}</p> : null}
           </section>
 
-          <hr className="album-divider" />
-
-          <div className="field-group">
-            <label htmlFor="addressTo" className="field-label required-label">
-              宛名
-            </label>
+          <section className="field-group compose-step step-two">
+            <div className="step-heading-row">
+              <span className="step-index" aria-hidden="true">
+                2
+              </span>
+              <label htmlFor="addressTo" className="field-label required-label">
+                宛名
+              </label>
+            </div>
             <input
               id="addressTo"
               value={addressTo}
               onChange={(e) => setAddressTo(e.target.value)}
               className="field-input"
             />
-          </div>
+          </section>
 
-          <div className="field-group">
-            <div className="field-heading-row">
-              <label htmlFor="body" className="field-label required-label">
-                本文
-              </label>
-              <span className="field-limit">{body.length}/1000</span>
+          <section className="field-group compose-step step-three">
+            <div className="step-heading-row">
+              <span className="step-index" aria-hidden="true">
+                3
+              </span>
+              <div className="step-heading-copy">
+                <div className="field-heading-row">
+                  <label htmlFor="body" className="field-label required-label">
+                    本文
+                  </label>
+                  <span className="field-limit">{body.length}/1000</span>
+                </div>
+                <p className="field-helper">孫の口調で書いてください</p>
+              </div>
             </div>
-            <p className="field-helper">孫の口調で書いてください</p>
             <textarea
               id="body"
               value={body}
@@ -273,29 +333,38 @@ export function ComposePage({ api }: { api: LetterApi }) {
               rows={6}
               className="field-input field-textarea"
             />
-          </div>
+          </section>
 
-          <div className="field-group">
-            <label htmlFor="signature" className="field-label required-label">
-              署名
-            </label>
+          <section className="field-group compose-step step-four">
+            <div className="step-heading-row">
+              <span className="step-index" aria-hidden="true">
+                4
+              </span>
+              <label htmlFor="signature" className="field-label required-label">
+                なまえ
+              </label>
+            </div>
             <input
               id="signature"
+              aria-label="署名"
               value={signature}
               onChange={(e) => setSignature(e.target.value)}
               placeholder="はると"
               className="field-input"
             />
-          </div>
+          </section>
 
           {reason ? <p className="form-hint">{reason}</p> : null}
           {saveError ? <p className="form-error">{saveError}</p> : null}
-          <button type="submit" disabled={Boolean(reason) || submitting} className="primary-button">
-            お手紙をつくる
+          <button
+            type="submit"
+            disabled={Boolean(reason) || submitting}
+            aria-busy={submitting}
+            className="primary-button"
+          >
+            {submitting ? "お手紙をつくっています…" : "お手紙をつくる"}
           </button>
         </form>
-
-        <p className="album-footer">つながる、家族のアルバム</p>
       </div>
     </main>
   );

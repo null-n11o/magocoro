@@ -27,23 +27,28 @@ function renderCompose(api: LetterApi) {
 }
 
 describe("ComposePage", () => {
-  it("frames the form as a family album letter", () => {
+  it("frames composing as four stationery steps without an empty postmark", () => {
     const api: LetterApi = {
       createLetter: vi.fn(),
       getLetter: vi.fn(),
       addStamp: vi.fn(),
     };
-    renderCompose(api);
+    const { container } = renderCompose(api);
 
     expect(
-      screen.getByRole("heading", {
-        name: "こんなことがあったよ",
-      }),
+      screen.getByRole("heading", { name: "こんなことがあったよ" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("写真といっしょに、ことばでつながる、Webのお手紙です。"))
+      .toBeInTheDocument();
     expect(screen.getByRole("banner", { name: "便箋のヘッダー" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "写真を飾る" })).toBeInTheDocument();
     expect(screen.getByText("写真は1〜3枚まで。1枚10MBまで")).toBeInTheDocument();
-    expect(screen.getByText("つながる、家族のアルバム")).toBeInTheDocument();
+
+    expect(
+      Array.from(container.querySelectorAll(".step-index"), (node) => node.textContent),
+    ).toEqual(["1", "2", "3", "4"]);
+    expect(container.querySelectorAll(".photo-slot")).toHaveLength(3);
+    expect(container.querySelector(".compose-seal")).not.toBeInTheDocument();
   });
 
   it("keeps submit disabled without photo, body, or signature", async () => {
@@ -89,6 +94,38 @@ describe("ComposePage", () => {
     await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
     expect(await screen.findByText("いま保存できません")).toBeInTheDocument();
     expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
+  });
+
+  it("shows a busy label while the letter is being created", async () => {
+    const user = userEvent.setup();
+    let resolveCreate!: (value: { id: string }) => void;
+    const createLetter = vi.fn(
+      () =>
+        new Promise<{ id: string }>((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
+    const api: LetterApi = {
+      createLetter,
+      getLetter: vi.fn(),
+      addStamp: vi.fn(),
+    };
+    renderCompose(api);
+
+    await user.upload(screen.getByLabelText("写真"), jpeg());
+    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+    await user.type(screen.getByLabelText("署名"), "はると");
+    await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
+
+    const busyButton = screen.getByRole("button", {
+      name: "お手紙をつくっています…",
+    });
+    expect(busyButton).toBeDisabled();
+    expect(busyButton).toHaveAttribute("aria-busy", "true");
+    expect(createLetter).toHaveBeenCalledTimes(1);
+
+    resolveCreate({ id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" });
+    expect(await screen.findByText("手紙ページ 送り側")).toBeInTheDocument();
   });
 
   it("rejects unsupported photo types without losing other inputs", async () => {
@@ -223,10 +260,17 @@ describe("ComposePage", () => {
       getLetter: vi.fn(),
       addStamp: vi.fn(),
     };
-    renderCompose(api);
+    const { container } = renderCompose(api);
     await user.upload(screen.getByLabelText("写真"), files);
-    await user.click(screen.getByRole("button", { name: "写真1を並べ替え" }));
+    const placingCards = Array.from(container.querySelectorAll(".photo-card.is-placing"));
+    expect(placingCards).toHaveLength(2);
+    for (const card of placingCards) {
+      fireEvent.animationEnd(card, { animationName: "photo-place" });
+    }
+    screen.getByRole("button", { name: "写真1を並べ替え" }).focus();
     await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("button", { name: "写真2を並べ替え" })).toHaveFocus();
+    expect(container.querySelectorAll(".photo-card.is-placing")).toHaveLength(0);
     await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
     await user.type(screen.getByLabelText("署名"), "はると");
     await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
