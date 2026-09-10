@@ -223,6 +223,7 @@ export async function recordPaperCanvas(plan: PaperBundlePlan): Promise<Blob> {
   let sound: Soundtrack | undefined;
   let recorder: MediaRecorder | undefined;
   let animation = 0;
+  let cancelled = false;
   try {
     const soundUrl =
       audioUrl ??
@@ -240,39 +241,54 @@ export async function recordPaperCanvas(plan: PaperBundlePlan): Promise<Blob> {
     recorder.ondataavailable = (event) => {
       if (event.data.size) chunks.push(event.data);
     };
-    const stopped = new Promise<void>((resolve, reject) => {
-      if (!recorder) return;
-      recorder.onstop = () => resolve();
-      recorder.onerror = () => reject(new Error("recording_failed"));
+    const stopped = new Promise<void>((resolve) => {
+      if (recorder) recorder.onstop = () => resolve();
     });
+    const failed = new Promise<never>((_, reject) => {
+      if (recorder)
+        recorder.onerror = () => reject(new Error("recording_failed"));
+    });
+    const activeRecorder = recorder;
     const draw = () => {
       ctx.drawImage(plan.paper, 0, 0, plan.width, plan.height);
       if (plan.clip) drawClipCover(ctx, plan.clip);
     };
-    draw();
-    recorder.start();
-    // Start sound only after the recorder is running, so its beginning cannot be lost.
-    await Promise.all([sound?.start(), clip?.play()]);
-    const started = performance.now();
-    await new Promise<void>((resolve, reject) => {
-      const frame = () => {
-        try {
-          draw();
-          if (performance.now() - started >= plan.durationMs) {
+    const record = async () => {
+      draw();
+      activeRecorder.start();
+      // Start sound only after the recorder is running, so its beginning cannot be lost.
+      await Promise.all([sound?.start(), clip?.play()]);
+      if (cancelled) return;
+      const started = performance.now();
+      await new Promise<void>((resolve, reject) => {
+        const frame = () => {
+          if (cancelled) {
             resolve();
             return;
           }
-          animation = requestAnimationFrame(frame);
-        } catch (error) {
-          reject(error);
-        }
-      };
-      frame();
-    });
-    recorder.stop();
-    await stopped;
+          try {
+            draw();
+            if (performance.now() - started >= plan.durationMs) {
+              resolve();
+              return;
+            }
+            animation = requestAnimationFrame(frame);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        frame();
+      });
+      if (cancelled) return;
+      if (activeRecorder.state === "recording") activeRecorder.stop();
+      await stopped;
+    };
+    // Attach the error handler in the same turn as starting recording. An error interrupts
+    // both playback preparation and the frame loop rather than waiting for letter duration.
+    await Promise.race([record(), failed]);
     return new Blob(chunks, { type: recorder.mimeType || "video/webm" });
   } finally {
+    cancelled = true;
     cancelAnimationFrame(animation);
     if (recorder?.state === "recording") recorder.stop();
     await sound?.dispose().catch(() => undefined);

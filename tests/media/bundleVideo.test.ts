@@ -305,6 +305,61 @@ describe("recordPaperCanvas audio lifecycle", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
+  it("rejects an early recorder error immediately and cancels frames without stopping an inactive recorder", async () => {
+    const track = { stop: vi.fn() };
+    const stop = vi.fn();
+    let recorder: { state: string; onerror?: () => void };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    Object.defineProperty(HTMLCanvasElement.prototype, "captureStream", {
+      configurable: true,
+      value: () => ({ getTracks: () => [track] }),
+    });
+    vi.stubGlobal(
+      "MediaRecorder",
+      class {
+        static isTypeSupported = () => true;
+        state = "inactive";
+        mimeType = "video/mp4";
+        onerror?: () => void;
+        constructor() {
+          recorder = this;
+        }
+        start() {
+          this.state = "recording";
+        }
+        stop = stop;
+      },
+    );
+    vi.stubGlobal("requestAnimationFrame", () => {
+      queueMicrotask(() => {
+        recorder.state = "inactive";
+        recorder.onerror?.();
+      });
+      return 123;
+    });
+    const cancel = vi.fn();
+    vi.stubGlobal("cancelAnimationFrame", cancel);
+    const outcome = await Promise.race([
+      recordPaperCanvas({
+        paper: document.createElement("canvas"),
+        width: 320,
+        height: 180,
+        durationMs: 30000,
+      }).catch((error: Error) => error.message),
+      new Promise((resolve) => setTimeout(() => resolve("still_running"), 30)),
+    ]);
+    expect(outcome).toBe("recording_failed");
+    expect(cancel).toHaveBeenCalledWith(123);
+    expect(track.stop).toHaveBeenCalled();
+    expect(stop).not.toHaveBeenCalled();
+    delete (
+      HTMLCanvasElement.prototype as HTMLCanvasElement & {
+        captureStream?: unknown;
+      }
+    ).captureStream;
+  });
   it("records before starting sound, suppresses clip sound for voice, restores the player and stops tracks", async () => {
     const order: string[] = [];
     const track = { stop: vi.fn() };
