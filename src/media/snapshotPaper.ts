@@ -172,13 +172,27 @@ async function waitForFonts(): Promise<void> {
   await Promise.race([
     ready.catch(() => undefined),
     new Promise<void>((resolve) => {
-      window.setTimeout(resolve, 400);
+      window.setTimeout(resolve, 2000);
     }),
   ]);
 }
 
 export async function snapshotPaper(paper: HTMLElement): Promise<HTMLCanvasElement> {
   await waitForFonts();
+  await Promise.all(Array.from(paper.querySelectorAll("img")).map(async image => {
+    if (typeof image.decode === "function") {
+      await image.decode().catch(() => { throw new Error("broken_image"); });
+    } else if (!image.complete) {
+      await new Promise<void>((resolve,reject) => {
+        const timeout = window.setTimeout(() => { cleanup(); reject(new Error("image_timeout")); }, 10000);
+        const cleanup = () => { window.clearTimeout(timeout); image.removeEventListener("load",loaded); image.removeEventListener("error",failed); };
+        const loaded = () => { cleanup(); resolve(); };
+        const failed = () => { cleanup(); reject(new Error("broken_image")); };
+        image.addEventListener("load",loaded); image.addEventListener("error",failed);
+      });
+    }
+    if (!image.naturalWidth) throw new Error("broken_image");
+  }));
   const box = paper.getBoundingClientRect();
   const width = Math.max(1, Math.round(box.width || paper.scrollWidth));
   const height = Math.max(1, Math.round(box.height || paper.scrollHeight));

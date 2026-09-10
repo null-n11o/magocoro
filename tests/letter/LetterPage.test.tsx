@@ -58,6 +58,17 @@ function renderLetter(
 }
 
 describe("LetterPage", () => {
+  it("renders mixed media and preserves the original body in the exported paper", async () => {
+    const mixed: LetterPublic = {...letter, body:"今日は公園へ。\nたのしかった！", media:{kind:"mixed",clipUrl:"/clip",photoUrls:["/one","/two"]}};
+    renderLetter(apiWithLetter({getLetter:vi.fn().mockResolvedValue({status:"ok",letter:mixed})}));
+    await screen.findByLabelText("手紙の動画");
+    expect(screen.getAllByAltText(/手紙の写真/)).toHaveLength(2);
+    const paper = screen.getByRole("article", {name:"お手紙"});
+    expect(paper.querySelector(".letter-body")?.textContent).toBe(mixed.body);
+    await userEvent.click(screen.getByRole("button", {name:"動画にして送る"}));
+    const {buildKeepVideo} = await import("../../src/letter/buildKeepVideo");
+    expect(buildKeepVideo).toHaveBeenCalledWith(mixed,paper);
+  });
   it("presents the shared letter as a family photo letter", async () => {
     renderLetter(apiWithLetter());
 
@@ -117,7 +128,7 @@ describe("LetterPage", () => {
       "src",
       letter.media.kind === "photos" ? letter.media.photoUrls[0] : "",
     );
-    const read = screen.getByRole("button", { name: "読んだよ" });
+    const read = screen.getByRole("button", { name: "よんだよ" });
     expect(read).toHaveAttribute("aria-pressed", "false");
     await user.click(read);
     expect(api.addStamp).toHaveBeenCalledWith(letter.id, "read");
@@ -161,7 +172,7 @@ describe("LetterPage", () => {
     });
     renderLetter(api);
     await screen.findByText("じいじ、ばあばへ");
-    await user.click(screen.getByRole("button", { name: "読んだよ" }));
+    await user.click(screen.getByRole("button", { name: "よんだよ" }));
     expect(await screen.findByText("お手紙が見つからない")).toBeInTheDocument();
     expect(screen.queryByText("きょうね、たてたよ")).not.toBeInTheDocument();
   });
@@ -173,7 +184,7 @@ describe("LetterPage", () => {
     });
     renderLetter(api);
     await screen.findByText("じいじ、ばあばへ");
-    await user.click(screen.getByRole("button", { name: "読んだよ" }));
+    await user.click(screen.getByRole("button", { name: "よんだよ" }));
     expect(await screen.findByText("いま反応を送れません")).toBeInTheDocument();
     expect(screen.getByText("きょうね、たてたよ")).toBeInTheDocument();
   });

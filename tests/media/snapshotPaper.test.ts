@@ -40,6 +40,29 @@ describe("snapshotPaper", () => {
     vi.restoreAllMocks();
   });
 
+  it("rejects broken images instead of silently exporting missing photos", async () => {
+    const paper = document.createElement("article");
+    const image = document.createElement("img");
+    Object.defineProperty(image, "complete", {value:true});
+    paper.append(image);
+    await expect(snapshotPaper(paper)).rejects.toThrow("image");
+  });
+  it("waits until selected images finish decoding before painting", async () => {
+    const paper = document.createElement("article");
+    const image = document.createElement("img");
+    let ready!: () => void;
+    image.decode = () => new Promise<void>(resolve => { ready=resolve; });
+    Object.defineProperty(image,"naturalWidth",{value:80});
+    paper.append(image);
+    const context = mockContext();
+    vi.spyOn(HTMLCanvasElement.prototype,"getContext").mockReturnValue(context);
+    let finished=false;
+    const pending=snapshotPaper(paper).then(()=>{finished=true;});
+    await Promise.resolve(); await Promise.resolve();
+    expect(finished).toBe(false);
+    ready(); await pending;
+    expect(finished).toBe(true);
+  });
   it("returns a canvas sized from the paper box", async () => {
     const paper = document.createElement("article");
     paper.append(document.createTextNode("じいじ、ばあばへ"));

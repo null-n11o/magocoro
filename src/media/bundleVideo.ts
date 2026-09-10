@@ -150,6 +150,17 @@ function keepRecorder(stream: MediaStream): MediaRecorder {
   return new MediaRecorder(stream);
 }
 
+export function drawClipCover(ctx: CanvasRenderingContext2D, clip: NonNullable<PaperBundlePlan["clip"]>): void {
+  const video = clip.source as HTMLVideoElement;
+  const sourceWidth = video.videoWidth;
+  const sourceHeight = video.videoHeight;
+  if (!sourceWidth || !sourceHeight) return;
+  const scale = Math.max(clip.width / sourceWidth, clip.height / sourceHeight);
+  const width = clip.width / scale;
+  const height = clip.height / scale;
+  ctx.drawImage(clip.source, (sourceWidth-width)/2, (sourceHeight-height)/2, width, height, clip.x, clip.y, clip.width, clip.height);
+}
+
 export async function recordPaperCanvas(plan: PaperBundlePlan): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = plan.width;
@@ -159,11 +170,16 @@ export async function recordPaperCanvas(plan: PaperBundlePlan): Promise<Blob> {
   const stream = canvas.captureStream(24);
   if (plan.audio) {
     await addParentAudioTrack(stream, plan.audio);
-  } else if (plan.clip?.useClipAudio) {
-    const clipAudio = (
-      plan.clip.source as HTMLVideoElement & { captureStream?: () => MediaStream }
-    ).captureStream?.();
-    const track = clipAudio?.getAudioTracks()[0];
+  }
+  const clipEl = plan.clip?.source as HTMLVideoElement | undefined;
+  if (clipEl && typeof clipEl.play === "function") {
+    clipEl.muted = Boolean(plan.clip?.mute);
+    clipEl.currentTime = 0;
+    await clipEl.play();
+  }
+  if (!plan.audio && plan.clip?.useClipAudio) {
+    const captured = (clipEl as HTMLVideoElement & {captureStream?: () => MediaStream})?.captureStream?.();
+    const track = captured?.getAudioTracks()[0];
     if (track) stream.addTrack(track);
   }
   const recorder = keepRecorder(stream);
@@ -174,25 +190,13 @@ export async function recordPaperCanvas(plan: PaperBundlePlan): Promise<Blob> {
   const stopped = new Promise<void>((resolve) => {
     recorder.onstop = () => resolve();
   });
-  const clipEl = plan.clip?.source as HTMLVideoElement | undefined;
-  if (clipEl && typeof clipEl.play === "function") {
-    clipEl.muted = Boolean(plan.clip?.mute);
-    clipEl.currentTime = 0;
-    await clipEl.play();
-  }
   recorder.start();
   const started = performance.now();
   await new Promise<void>((resolve) => {
     const draw = () => {
       ctx.drawImage(plan.paper, 0, 0, plan.width, plan.height);
       if (plan.clip) {
-        ctx.drawImage(
-          plan.clip.source,
-          plan.clip.x,
-          plan.clip.y,
-          plan.clip.width,
-          plan.clip.height,
-        );
+        drawClipCover(ctx, plan.clip);
       }
       if (performance.now() - started >= plan.durationMs) {
         recorder.stop();

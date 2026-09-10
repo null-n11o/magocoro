@@ -10,6 +10,15 @@ describe("prepareClip", () => {
     vi.restoreAllMocks();
   });
 
+  it("preserves source audio by keeping supported small MP4 and WebM originals", async () => {
+    for (const type of ["video/mp4", "video/webm"]) {
+      const original = video(type, 2000);
+      const silent = video("video/webm", 1000);
+      const result = await prepareClip(original, async () => 2, async () => silent);
+      expect(result).toEqual({ok:true,file:original});
+      if (result.ok) expect(result.file).toBe(original);
+    }
+  });
   it("rejects clips longer than 30 seconds", async () => {
     const result = await prepareClip(
       video("video/mp4", 1000),

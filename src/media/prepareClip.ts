@@ -20,6 +20,8 @@ export async function prepareClip(
     return { ok: false, reason: "unsupported" };
   }
   if (duration > MAX_MEDIA_SECONDS) return { ok: false, reason: "too_long" };
+  // Keep compatible originals intact: canvas transcoding must not discard their sound.
+  if (file.size <= TARGET_CLIP_BYTES && ["video/mp4", "video/webm"].includes(baseContentType(file.type))) return { ok: true, file };
   if (transcode) {
     try {
       const next = await transcode(file);

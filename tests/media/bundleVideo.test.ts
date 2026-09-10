@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addParentAudioTrack,
+  drawClipCover,
   clipInPaperPlan,
   keepRecorderMime,
   keepShareKind,
@@ -283,5 +284,17 @@ describe("addParentAudioTrack", () => {
     );
     expect(order).toEqual(["play", "capture"]);
     expect(addTrack).toHaveBeenCalledWith(track);
+  });
+});
+
+
+describe("drawClipCover", () => {
+  it("center-crops a wide clip to the tall stamp without stretching", () => {
+    const source = document.createElement("video");
+    Object.defineProperty(source,"videoWidth",{value:1920});
+    Object.defineProperty(source,"videoHeight",{value:1080});
+    const drawImage = vi.fn();
+    drawClipCover({drawImage} as unknown as CanvasRenderingContext2D, {source,x:10,y:20,width:200,height:300,mute:false,useClipAudio:true});
+    expect(drawImage).toHaveBeenCalledWith(source,600,0,720,1080,10,20,200,300);
   });
 });

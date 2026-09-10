@@ -4,6 +4,7 @@
 
 ## 設計書（読む順）
 
+0. `docs/superpowers/specs/2026-09-10-stationery-mixed-media-design.md`（現行UI・混在メディアの正本。以下のXOR・モバイル限定幅・配色・フォント規定を上書き）
 1. `docs/superpowers/specs/2026-09-10-magocoro-letter-bundle-design.md`（要件・設計の正本。自己完結）
 2. `docs/superpowers/plans/2026-09-10-magocoro-letter-bundle.md`（本仕様の実装計画。写真のみの旧計画は使わない）
 3. `docs/PLAN-20260908-300-magocoro-growth-share.md`（着想メモ。本仕様の制約源ではない）
@@ -28,7 +29,7 @@
 - 作る画面 → 端末圧縮 → `LetterApi`（`src/api/letters.ts`）→ Worker → R2。手紙画面は取得・素材・スタンプだけ同じ窓口を使う。
 - 画面は `LetterApi` にだけ依存する。LINE公式や課金を足すときは Worker の奥だけ増やす。
 - 文面生成はしない。本文は親が書いたものがそのまま載る。
-- R2 に置くのは手紙JSONと圧縮済み素材だけ。画像1〜3枚 XOR 動画1本。音声は任意。ブラウザは R2 を直接叩かない。まとめ動画は端末だけで作り、R2 に上げない。
+- R2 に置くのは手紙JSONと圧縮済み素材だけ。写真・動画あわせて1〜3つ（動画は1本まで）。音声は任意。ブラウザは R2 を直接叩かない。まとめ動画は端末だけで作り、R2 に上げない。
 
 ## Working rules
 

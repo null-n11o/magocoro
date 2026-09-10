@@ -8,13 +8,13 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import type { LetterApi } from "../api/types";
-import botanicalSprig from "../assets/botanical-sprig.png";
+import { LetterPaper } from "../letter/LetterPaper";
 import { compressImage } from "../media/compressImage";
 import { measureDuration } from "../media/measureDuration";
 import { prepareAudio } from "../media/prepareAudio";
 import { prepareClip, transcodeClipTo720p } from "../media/prepareClip";
 
-type MediaKind = "photos" | "clip";
+
 
 function moveItem<T>(items: T[], from: number, to: number): T[] {
   if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) {
@@ -29,9 +29,11 @@ function moveItem<T>(items: T[], from: number, to: number): T[] {
 
 export function ComposePage({ api }: { api: LetterApi }) {
   const navigate = useNavigate();
-  const [mediaKind, setMediaKind] = useState<MediaKind>("photos");
-  const mediaKindRef = useRef(mediaKind);
-  mediaKindRef.current = mediaKind;
+  const processingRef = useRef(false);
+  const [processing, setProcessing] = useState(false);
+  const [audioUrl, setAudioUrl] = useState("");
+  function lock() { if (processingRef.current || submitting) return false; processingRef.current = true; setProcessing(true); return true; }
+  function unlock() { processingRef.current = false; setProcessing(false); }
   const [photos, setPhotos] = useState<File[]>([]);
   const [clip, setClip] = useState<File | null>(null);
   const [audio, setAudio] = useState<File | null>(null);
@@ -88,89 +90,65 @@ export function ComposePage({ api }: { api: LetterApi }) {
   }, []);
 
   const reason = useMemo(() => {
-    if (mediaKind === "photos" && photos.length < 1) return "写真を1枚以上えらんでください";
-    if (mediaKind === "clip" && !clip) return "動画をえらんでください";
+    if (!photos.length && !clip) return "写真か動画をえらんでください";
     if (body.trim() === "") return "本文を書いてください";
     if (signature.trim() === "") return "なまえを書いてください";
     if (body.length > 1000) return "本文は1000字以内にしてください";
     if (signature.length > 20) return "なまえは20字以内にしてください";
     return "";
-  }, [mediaKind, photos, clip, body, signature]);
-
-  function switchKind(next: MediaKind) {
-    if (next === mediaKind) return;
-    setMediaKind(next);
-    setMediaError("");
-    if (next === "photos") setClip(null);
-    else setPhotos([]);
-  }
+  }, [photos, clip, body, signature]);
 
   async function onPhotos(files: FileList | null) {
-    if (!files) return;
+    if (!files || !lock()) return;
     setMediaError("");
     const next = [...photos];
-    const addedPhotoKeys: string[] = [];
-    for (const file of Array.from(files)) {
-      if (mediaKindRef.current !== "photos") return;
-      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-        setMediaError("この写真は使えません");
-        continue;
+    const added: string[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        if (next.length + Number(Boolean(clip)) >= 3) { setMediaError("写真と動画はあわせて3つまでです"); break; }
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setMediaError("この写真は使えません"); continue; }
+        try { const prepared = await compressImage(file); next.push(prepared); added.push(getPhotoKey(prepared)); }
+        catch { setMediaError("この写真は使えません"); }
       }
-      if (next.length >= 3) break;
-      try {
-        const compressed = await compressImage(file);
-        if (mediaKindRef.current !== "photos") return;
-        next.push(compressed);
-        addedPhotoKeys.push(getPhotoKey(compressed));
-      } catch {
-        if (mediaKindRef.current !== "photos") return;
-        setMediaError("この写真は使えません");
-      }
-    }
-    if (mediaKindRef.current !== "photos") return;
-    setPhotos(next);
-    if (addedPhotoKeys.length > 0) {
-      setPlacingPhotoKeys((current) => new Set([...current, ...addedPhotoKeys]));
-    }
+      setPhotos(next);
+      setPlacingPhotoKeys(current => new Set([...current, ...added]));
+    } finally { unlock(); }
   }
-
   async function onClip(files: FileList | null) {
     const file = files?.[0];
-    if (!file) return;
-    const result = await prepareClip(file, measureDuration, transcodeClipTo720p);
-    if (mediaKindRef.current !== "clip") return;
-    if (!result.ok) {
-      setClip(null);
-      setMediaError(result.reason === "too_long" ? "30秒以内にしてください" : "この動画は使えません");
-      return;
-    }
-    setMediaError("");
-    setClip(result.file);
+    if (!file || !lock()) return;
+    try {
+      if (!clip && photos.length >= 3) { setMediaError("写真と動画はあわせて3つまでです"); return; }
+      const result = await prepareClip(file, measureDuration, transcodeClipTo720p);
+      if (!result.ok) { setMediaError(result.reason === "too_long" ? "30秒以内にしてください" : "この動画は使えません"); return; }
+      setClip(result.file); setMediaError("");
+    } catch { setMediaError("この動画は使えません"); }
+    finally { unlock(); }
   }
-
   async function onAudioFile(file: File) {
-    const result = await prepareAudio(file, measureDuration);
-    if (!result.ok) {
-      setAudio(null);
-      setMediaError(result.reason === "too_long" ? "30秒以内にしてください" : "この音声は使えません");
-      return;
-    }
-    setMediaError("");
-    setAudio(result.file);
+    try {
+      const result = await prepareAudio(file, measureDuration);
+      if (!result.ok) { setMediaError(result.reason === "too_long" ? "30秒以内にしてください" : "この音声は使えません"); return; }
+      setAudio(result.file); setMediaError("");
+    } catch { setMediaError("この音声は使えません"); }
+    finally { unlock(); }
   }
-
   async function onAudio(files: FileList | null) {
     const file = files?.[0];
-    if (!file) return;
-    await onAudioFile(file);
+    if (file && lock()) await onAudioFile(file);
   }
+  useEffect(() => {
+    if (!audio) { setAudioUrl(""); return; }
+    const url = URL.createObjectURL(audio); setAudioUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [audio]);
 
   async function toggleRecord() {
     if (recording) {
       recorderRef.current?.stop();
       return;
     }
-    if (recordStartRef.current) return;
+    if (recordStartRef.current || !lock()) return;
     recordStartRef.current = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -197,6 +175,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
       }, 30_000);
     } catch {
       recordStartRef.current = false;
+      unlock();
       setMediaError("録音できません");
     }
   }
@@ -270,11 +249,11 @@ export function ComposePage({ api }: { api: LetterApi }) {
     }
   }
 
-  const emptyPhotoSlotCount = Math.max(0, 2 - photos.length);
+
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (reason || submitting) return;
+    if (reason || submitting || processingRef.current || recording) return;
     setSubmitting(true);
     setSaveError("");
     try {
@@ -283,9 +262,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
         body,
         signature,
         media:
-          mediaKind === "photos"
-            ? { kind: "photos", photos }
-            : { kind: "clip", clip: clip as File },
+          clip ? photos.length ? { kind: "mixed", photos, clip } : { kind: "clip", clip } : { kind: "photos", photos },
         ...(audio ? { audio } : {}),
       });
       navigate(`/letter/${id}`, { state: { fromCompose: true } });
@@ -298,268 +275,47 @@ export function ComposePage({ api }: { api: LetterApi }) {
 
   return (
     <main className="page-shell compose-shell">
-      <img src={botanicalSprig} alt="" aria-hidden="true" className="botanical botanical-top" />
-      <img
-        src={botanicalSprig}
-        alt=""
-        aria-hidden="true"
-        className="botanical botanical-bottom"
-      />
       <div className="page-column">
-        <header className="compose-header" aria-label="便箋のヘッダー">
-          <div className="brand-lockup">
-            <h1 className="wordmark">Magocoro</h1>
-            <span className="brand-wave" aria-hidden="true" />
-          </div>
-          <h2 className="compose-title">こんなことがあったよ</h2>
-          <p className="compose-intro">
-            写真または短い動画と、ことばと声を1通にまとめる、Webのお手紙です。
-          </p>
-        </header>
-
-        <form onSubmit={onSubmit} className="letter-form">
-          <section className="album-section compose-step step-one">
-            <div className="step-heading-row">
-              <span className="step-index" aria-hidden="true">
-                1
-              </span>
-              <div className="step-heading-copy">
-                <div className="section-heading-row">
-                  <h2 id="photos-heading" className="section-title">
-                    {mediaKind === "photos" ? "写真" : "動画"}
-                  </h2>
-                  {mediaKind === "photos" ? (
-                    <span className="section-count">{photos.length}/3</span>
-                  ) : null}
-                </div>
-                {mediaKind === "photos" ? (
-                  <p className="section-helper">写真は1〜3枚まで。選んだあと小さくします</p>
-                ) : null}
+        <header className="site-header"><a href="/" className="wordmark">Magocoro</a><span>写真に、ことばに、ときどき声。</span></header>
+        <div className="compose-intro"><p className="eyebrow">いつもの日から、ひとつのお手紙。</p><h1>なんでもない今日を、<br />とっておきの一通に。</h1><p>じいじ・ばあばへ、いつものLINEで。<br />写真とことばを、ゆっくり選んでみませんか。</p></div>
+        <div className="compose-layout">
+        <form onSubmit={onSubmit} className="compose-form">
+          <section className="compose-step">
+            <div className="step-heading-row"><span className="step-index">01</span><div><h2>思い出をえらぶ</h2><p className="section-helper">写真と動画をあわせて3つ。動画は1本・30秒まで。</p></div></div>
+            <fieldset disabled={processing || submitting} className="media-fieldset">
+              <div className="media-pickers">
+                <label className="file-picker">＋ 写真をえらぶ<input aria-label="写真" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={async e => { const input=e.currentTarget; await onPhotos(input.files); input.value=""; }} /></label>
+                <label className="file-picker">{clip ? "動画を入れ替える" : "＋ 動画をえらぶ"}<input aria-label="動画" type="file" accept="video/mp4,video/webm,video/quicktime" onChange={async e => {const input=e.currentTarget; await onClip(input.files); input.value="";}} /></label>
               </div>
-            </div>
-
-            <div className="media-toggle" role="group" aria-label="写真または動画">
-              <button
-                type="button"
-                aria-pressed={mediaKind === "photos"}
-                onClick={() => switchKind("photos")}
-              >
-                写真
-              </button>
-              <button
-                type="button"
-                aria-pressed={mediaKind === "clip"}
-                onClick={() => switchKind("clip")}
-              >
-                動画
-              </button>
-            </div>
-
-            {mediaKind === "photos" ? (
-              <>
-                <div className="photo-slot-grid" role="group" aria-label="写真を飾る">
-                  {photos.map((file, i) => (
-                    <div
-                      key={getPhotoKey(file)}
-                      className={[
-                        "photo-card",
-                        "photo-slot",
-                        placingPhotoKeys.has(getPhotoKey(file)) ? "is-placing" : "",
-                        draggingIndex === i ? "is-dragging" : "",
-                        dragOverIndex === i && draggingIndex !== i ? "is-drag-over" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                      data-photo-index={i}
-                      onAnimationEnd={() => {
-                        const placedKey = getPhotoKey(file);
-                        setPlacingPhotoKeys((current) => {
-                          if (!current.has(placedKey)) return current;
-                          const next = new Set(current);
-                          next.delete(placedKey);
-                          return next;
-                        });
-                      }}
-                    >
-                      <img
-                        src={photoUrls[i]}
-                        alt={`選んだ写真 ${i + 1}`}
-                        className="photo-preview"
-                      />
-                      <div className="photo-actions">
-                        <button
-                          type="button"
-                          className="photo-action photo-drag-handle"
-                          aria-label={`写真${i + 1}を並べ替え`}
-                          onPointerDown={(event) => onPhotoPointerDown(i, event)}
-                          onPointerMove={(event) => onPhotoPointerMove(i, event)}
-                          onPointerUp={(event) => endPhotoPointerDrag(i, event)}
-                          onPointerCancel={(event) => cancelPhotoPointerDrag(i, event)}
-                          onKeyDown={(event) => onPhotoHandleKeyDown(i, event)}
-                        >
-                          移動
-                        </button>
-                        <button
-                          type="button"
-                          className="photo-action photo-remove-button"
-                          aria-label={`写真${i + 1}を削除`}
-                          onClick={() => removePhoto(i)}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {photos.length < 3 ? (
-                    <label htmlFor="photos" className="photo-picker photo-slot">
-                      <span className="photo-picker-mark" aria-hidden="true">
-                        ＋
-                      </span>
-                      <span className="photo-picker-title">写真をえらぶ</span>
-                    </label>
-                  ) : null}
-
-                  {Array.from({ length: emptyPhotoSlotCount }, (_, index) => (
-                    <span key={index} className="photo-slot photo-slot-empty" aria-hidden="true" />
-                  ))}
-                </div>
-                <input
-                  id="photos"
-                  aria-label="写真"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  onChange={(e) => void onPhotos(e.target.files)}
-                  className="file-input"
-                />
-              </>
-            ) : (
-              <div className="clip-slot">
-                <label htmlFor="clip" className="secondary-button">
-                  動画をえらぶ
-                </label>
-                <input
-                  id="clip"
-                  aria-label="動画"
-                  type="file"
-                  accept="video/mp4,video/webm,video/quicktime"
-                  onChange={(e) => void onClip(e.target.files)}
-                  className="file-input"
-                />
-                {clip && clipUrl ? (
-                  <video className="clip-preview" src={clipUrl} controls playsInline />
-                ) : null}
+              <div className="photo-slot-grid">
+                {photos.map((file,i) => <div key={getPhotoKey(file)} data-photo-index={i} className={`photo-card ${placingPhotoKeys.has(getPhotoKey(file)) ? "is-placing" : ""} ${dragOverIndex===i && draggingIndex!==i ? "is-drag-over" : ""}`} onAnimationEnd={() => setPlacingPhotoKeys(current => {const next=new Set(current);next.delete(getPhotoKey(file));return next;})}>
+                  <img src={photoUrls[i]} alt={`選んだ写真 ${i+1}`} />
+                  <div className="photo-actions"><button type="button" className="photo-drag-handle" aria-label={`写真${i+1}を並べ替え`} onPointerDown={e=>onPhotoPointerDown(i,e)} onPointerMove={e=>onPhotoPointerMove(i,e)} onPointerUp={e=>endPhotoPointerDrag(i,e)} onPointerCancel={e=>cancelPhotoPointerDrag(i,e)} onKeyDown={e=>onPhotoHandleKeyDown(i,e)}>移動</button><button type="button" aria-label={`写真${i+1}を削除`} onClick={()=>removePhoto(i)}>×</button></div>
+                </div>)}
               </div>
-            )}
-            {mediaError ? <p className="form-error">{mediaError}</p> : null}
+              {clip && <div className="selected-file"><span>動画をのせました</span><button type="button" onClick={()=>{setClip(null);setMediaError("");}}>動画を削除</button></div>}
+            </fieldset>
+            <p className="section-helper">{photos.length + Number(Boolean(clip))} / 3 選択中{photos.length>1 ? " ・ 写真は移動ボタンをドラッグ、または左右キーで並べ替え" : ""}</p>
           </section>
-
-          <section className="field-group compose-step step-two">
-            <div className="step-heading-row">
-              <span className="step-index" aria-hidden="true">
-                2
-              </span>
-              <div>
-                <h2 className="section-title">声（任意）</h2>
-                <p className="section-helper">30秒以内。なくても作れます</p>
-              </div>
-            </div>
-            <div className="audio-row">
-              <button
-                type="button"
-                aria-pressed={recording}
-                aria-label={recording ? "録音を止める" : "録音する"}
-                onClick={() => void toggleRecord()}
-              >
-                {recording ? "録音を止める" : "録音する"}
-              </button>
-              <label htmlFor="audio" className="secondary-button">
-                ファイルをえらぶ
-              </label>
-              <input
-                id="audio"
-                aria-label="声"
-                type="file"
-                accept="audio/mp4,audio/aac,audio/webm,audio/ogg"
-                className="file-input"
-                onChange={(e) => void onAudio(e.target.files)}
-              />
-            </div>
-            {audio ? <p className="section-helper">声をのせました</p> : null}
+          <section className="compose-step">
+            <div className="step-heading-row"><span className="step-index">02</span><div><h2>ことばを添える</h2><p className="section-helper">お子さまの声を思い浮かべて、ひらがなで書いてみても。</p></div></div>
+            <label className="field-label" htmlFor="addressTo">宛名</label><input id="addressTo" className="field-input" value={addressTo} onChange={e=>setAddressTo(e.target.value)} />
+            <div className="field-heading-row"><label className="field-label" htmlFor="body">本文</label><span className="field-limit">{body.length}/1000</span></div>
+            <textarea id="body" className="field-input field-textarea" rows={6} value={body} onChange={e=>setBody(e.target.value)} placeholder="きょうのできごとを、ここにかいてね" />
+            <label className="field-label" htmlFor="signature">なまえ</label><input id="signature" aria-label="署名" className="field-input" value={signature} onChange={e=>setSignature(e.target.value)} placeholder="はるとより" />
           </section>
-
-          <section className="field-group compose-step step-three">
-            <div className="step-heading-row">
-              <span className="step-index" aria-hidden="true">
-                3
-              </span>
-              <label htmlFor="addressTo" className="field-label required-label">
-                宛名
-              </label>
-            </div>
-            <input
-              id="addressTo"
-              value={addressTo}
-              onChange={(e) => setAddressTo(e.target.value)}
-              className="field-input"
-            />
+          <section className="compose-step audio-section">
+            <div className="step-heading-row"><span className="step-index">03</span><div><h2>声も、いっしょに <small>任意</small></h2><p className="section-helper">30秒までの「だいすき」を添えられます。</p></div></div>
+            <div className="audio-row"><button type="button" disabled={(processing && !recording) || submitting} aria-pressed={recording} aria-label={recording ? "録音を止める" : "録音する"} onClick={()=>void toggleRecord()}>{recording ? "録音を止める" : "録音する"}</button><label className="file-picker">ファイルをえらぶ<input disabled={processing || submitting} aria-label="声" type="file" accept="audio/mp4,audio/aac,audio/webm,audio/ogg" onChange={async e=>{const input=e.currentTarget;await onAudio(input.files);input.value="";}} /></label></div>
+            {audio && <div className="audio-selected"><audio src={audioUrl} controls aria-label="選んだ声"/><button type="button" disabled={processing || submitting} onClick={()=>setAudio(null)}>声を削除</button></div>}
           </section>
-
-          <section className="field-group compose-step step-four">
-            <div className="step-heading-row">
-              <span className="step-index" aria-hidden="true">
-                4
-              </span>
-              <div className="step-heading-copy">
-                <div className="field-heading-row">
-                  <label htmlFor="body" className="field-label required-label">
-                    本文
-                  </label>
-                  <span className="field-limit">{body.length}/1000</span>
-                </div>
-              </div>
-            </div>
-            <textarea
-              id="body"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="今週のできごとを、短くでよいので書いてください"
-              rows={6}
-              className="field-input field-textarea"
-            />
-          </section>
-
-          <section className="field-group compose-step step-five">
-            <div className="step-heading-row">
-              <span className="step-index" aria-hidden="true">
-                5
-              </span>
-              <label htmlFor="signature" className="field-label required-label">
-                なまえ
-              </label>
-            </div>
-            <input
-              id="signature"
-              aria-label="署名"
-              value={signature}
-              onChange={(e) => setSignature(e.target.value)}
-              placeholder="はると"
-              className="field-input"
-            />
-          </section>
-
-          {reason ? <p className="form-hint">{reason}</p> : null}
-          {saveError ? <p className="form-error">{saveError}</p> : null}
-          <button
-            type="submit"
-            disabled={Boolean(reason) || submitting}
-            aria-busy={submitting}
-            className="primary-button"
-          >
-            {submitting ? "お手紙をつくっています…" : "お手紙をつくる"}
-          </button>
+          <div aria-live="polite">{processing && <p className="form-hint">{recording ? "録音しています…" : "素材を準備しています…"}</p>}{mediaError && <p className="form-error" role="alert">{mediaError}</p>}{reason && <p className="form-hint">{reason}</p>}{saveError && <p className="form-error" role="alert">{saveError}</p>}</div>
+          <button type="submit" className="primary-button" disabled={Boolean(reason)||submitting||processing||recording} aria-busy={submitting}>{submitting ? "お手紙をつくっています…" : "お手紙をつくる"}</button>
+          <p className="privacy-note">登録不要。できあがったリンクは90日間ひらけます。</p>
         </form>
+        <aside className="preview-column" aria-label="お手紙のプレビュー"><div className="preview-heading"><span>できあがりのプレビュー</span><span>あなたのことばが、そのまま届きます</span></div><LetterPaper photoUrls={photoUrls} clipUrl={clipUrl} audioUrl={audioUrl} addressTo={addressTo} body={body} signature={signature} preview /><p className="preview-note">小さな毎日が、うれしい贈りものになります。</p></aside>
+        </div>
+        <footer className="site-footer"><span className="wordmark">Magocoro</span><span>離れていても、すぐそばに。</span></footer>
       </div>
     </main>
   );
