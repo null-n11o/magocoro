@@ -38,4 +38,6 @@
 - [x] Run npm test, npm run build, npm run lint.
 - [x] Browser verify real local creation with3 photos and mixed2photos/clip; letter rendering, reactions, reload, copy and export at desktop and mobile; compare selected image art direction with implemented screens. Use synthetic test media only on local server.
 - [x] Record exact verification and platform limits in design-qa.md.
-- [ ] Commit any verified fixes, push feature branch and create PR; do not merge/deploy. Keep local preview available.
+- [x] Commit any verified fixes, push feature branch and create PR; do not merge/deploy. Keep local preview available.
+
+Completed: PR https://github.com/null-n11o/magocoro/pull/6 (stacked on PR5). No merge/deploy.
