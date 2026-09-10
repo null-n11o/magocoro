@@ -4,6 +4,21 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { LetterApi } from "../../src/api/types";
 import { ComposePage } from "../../src/compose/ComposePage";
+import { prepareClip } from "../../src/media/prepareClip";
+
+vi.mock("../../src/media/compressImage", () => ({
+  compressImage: async (file: File) => file,
+}));
+vi.mock("../../src/media/prepareClip", () => ({
+  prepareClip: vi.fn(async (file: File) => ({ ok: true as const, file })),
+  transcodeClipTo720p: vi.fn(async (file: File) => file),
+}));
+vi.mock("../../src/media/prepareAudio", () => ({
+  prepareAudio: vi.fn(async (file: File) => ({ ok: true as const, file })),
+}));
+vi.mock("../../src/media/measureDuration", () => ({
+  measureDuration: async () => 3,
+}));
 
 function jpeg(name = "a.jpg"): File {
   return new File([new Uint8Array(8)], name, { type: "image/jpeg" });
@@ -27,40 +42,120 @@ function renderCompose(api: LetterApi) {
 }
 
 describe("ComposePage", () => {
-  it("frames composing as four stationery steps without an empty postmark", () => {
-    const api: LetterApi = {
-      createLetter: vi.fn(),
-      getLetter: vi.fn(),
-      addStamp: vi.fn(),
-    };
+  it("frames composing as stationery steps without grandchild-tone coaching", () => {
+    const api: LetterApi = { createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() };
     const { container } = renderCompose(api);
-
+    expect(screen.getByRole("heading", { name: "こんなことがあったよ" })).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "こんなことがあったよ" }),
+      screen.getByText("写真または短い動画と、ことばと声を1通にまとめる、Webのお手紙です。"),
     ).toBeInTheDocument();
-    expect(screen.getByText("写真といっしょに、ことばでつながる、Webのお手紙です。"))
-      .toBeInTheDocument();
-    expect(screen.getByRole("banner", { name: "便箋のヘッダー" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "写真を飾る" })).toBeInTheDocument();
-    expect(screen.getByText("写真は1〜3枚まで。1枚10MBまで")).toBeInTheDocument();
-
-    expect(
-      Array.from(container.querySelectorAll(".step-index"), (node) => node.textContent),
-    ).toEqual(["1", "2", "3", "4"]);
-    expect(container.querySelectorAll(".photo-slot")).toHaveLength(3);
+    expect(screen.queryByText("孫の口調で書いてください")).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("今週のできごとを、短くでよいので書いてください")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "写真" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "動画" })).toHaveAttribute("aria-pressed", "false");
     expect(container.querySelector(".compose-seal")).not.toBeInTheDocument();
   });
 
-  it("keeps submit disabled without photo, body, or signature", async () => {
+  it("keeps submit disabled without media, body, or signature", async () => {
+    const api: LetterApi = { createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() };
+    renderCompose(api);
+    expect(screen.getByRole("button", { name: "お手紙をつくる" })).toBeDisabled();
+    expect(screen.getByText("写真を1枚以上えらんでください")).toBeInTheDocument();
+  });
+
+  it("clears photos when switching to video", async () => {
+    const user = userEvent.setup();
     const api: LetterApi = {
-      createLetter: vi.fn(),
+      createLetter: vi.fn().mockResolvedValue({ id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }),
       getLetter: vi.fn(),
       addStamp: vi.fn(),
     };
     renderCompose(api);
-    const button = screen.getByRole("button", { name: "お手紙をつくる" });
-    expect(button).toBeDisabled();
-    expect(screen.getByText("孫の口調で書いてください")).toBeInTheDocument();
+    await user.upload(screen.getByLabelText("写真"), jpeg());
+    await user.click(screen.getByRole("button", { name: "動画" }));
+    expect(screen.queryByRole("img", { name: "選んだ写真 1" })).not.toBeInTheDocument();
+    await user.upload(
+      screen.getByLabelText("動画"),
+      new File([new Uint8Array(8)], "a.mp4", { type: "video/mp4" }),
+    );
+    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+    await user.type(screen.getByLabelText("署名"), "はると");
+    await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
+    expect(api.createLetter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        media: expect.objectContaining({ kind: "clip" }),
+      }),
+    );
+  });
+
+  it("rejects a clip over 30 seconds without clearing the body", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    vi.mocked(prepareClip).mockResolvedValueOnce({ ok: false, reason: "too_long" });
+    const api: LetterApi = { createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() };
+    renderCompose(api);
+    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+    await user.click(screen.getByRole("button", { name: "動画" }));
+    await user.upload(
+      screen.getByLabelText("動画"),
+      new File([new Uint8Array(8)], "a.mp4", { type: "video/mp4" }),
+    );
+    expect(await screen.findByText("30秒以内にしてください")).toBeInTheDocument();
+    expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
+  });
+
+  it("creates a photo letter without audio", async () => {
+    const user = userEvent.setup();
+    const api: LetterApi = {
+      createLetter: vi.fn().mockResolvedValue({ id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }),
+      getLetter: vi.fn(),
+      addStamp: vi.fn(),
+    };
+    renderCompose(api);
+    await user.upload(screen.getByLabelText("写真"), jpeg());
+    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+    await user.type(screen.getByLabelText("署名"), "はると");
+    await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
+    expect(api.createLetter).toHaveBeenCalledWith({
+      media: { kind: "photos", photos: [expect.any(File)] },
+      addressTo: "じいじ、ばあばへ",
+      body: "きょうね、たてたよ",
+      signature: "はると",
+    });
+  });
+
+  it("attaches prepared audio when a voice file is chosen", async () => {
+    const user = userEvent.setup();
+    const voice = new File([new Uint8Array(8)], "a.webm", { type: "audio/webm" });
+    const api: LetterApi = {
+      createLetter: vi.fn().mockResolvedValue({ id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }),
+      getLetter: vi.fn(),
+      addStamp: vi.fn(),
+    };
+    renderCompose(api);
+    await user.upload(screen.getByLabelText("写真"), jpeg());
+    await user.upload(screen.getByLabelText("声"), voice);
+    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+    await user.type(screen.getByLabelText("署名"), "はると");
+    await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
+    expect(api.createLetter).toHaveBeenCalledWith(
+      expect.objectContaining({ audio: expect.any(File) }),
+    );
+  });
+
+  it("keeps other fields when recording is denied", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: vi.fn().mockRejectedValue(new Error("denied")),
+      },
+    });
+    const api: LetterApi = { createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() };
+    renderCompose(api);
+    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+    await user.click(screen.getByRole("button", { name: "録音する" }));
+    expect(await screen.findByText("録音できません")).toBeInTheDocument();
+    expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
   });
 
   it("navigates after a successful create", async () => {
@@ -145,41 +240,6 @@ describe("ComposePage", () => {
     expect(await screen.findByText("この写真は使えません")).toBeInTheDocument();
     expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
     expect(screen.getByLabelText("署名")).toHaveValue("はると");
-  });
-
-  it("rejects photos larger than 10MB without losing other inputs", async () => {
-    const user = userEvent.setup();
-    const api: LetterApi = {
-      createLetter: vi.fn(),
-      getLetter: vi.fn(),
-      addStamp: vi.fn(),
-    };
-    renderCompose(api);
-    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
-    await user.type(screen.getByLabelText("署名"), "はると");
-    await user.upload(
-      screen.getByLabelText("写真"),
-      new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" }),
-    );
-    expect(await screen.findByText("写真が大きすぎます")).toBeInTheDocument();
-    expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
-    expect(screen.getByLabelText("署名")).toHaveValue("はると");
-  });
-
-  it("accepts a photo up to 10MB", async () => {
-    const user = userEvent.setup();
-    const api: LetterApi = {
-      createLetter: vi.fn(),
-      getLetter: vi.fn(),
-      addStamp: vi.fn(),
-    };
-    renderCompose(api);
-    await user.upload(
-      screen.getByLabelText("写真"),
-      new File([new Uint8Array(10 * 1024 * 1024)], "large.jpg", { type: "image/jpeg" }),
-    );
-
-    expect(screen.queryByText("写真が大きすぎます")).not.toBeInTheDocument();
   });
 
   it("deletes a selected photo before saving", async () => {
