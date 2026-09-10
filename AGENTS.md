@@ -1,14 +1,15 @@
 # Magocoro
 
-孫目線の成長シェアサービス。親は写真と孫口調の本文を入れてWeb手紙を作り、リンクをLINEに貼ると祖父母のスマホで開ける。今回の実装対象はWeb手紙の1ループ（Cloudflare Pages + Worker + R2）。
+親が写真または短い動画と、ことばと声を1通にまとめて送り、祖父母がLINEのリンクまたは動画で受け取る。今回の実装対象は無料枠に収まるまとめ手紙の1ループ（Cloudflare Pages + Worker + R2。変換は端末側）。
 
 ## 設計書（読む順）
 
-1. `docs/superpowers/specs/2026-09-08-magocoro-web-letter-design.md`（要件・設計の正本。自己完結）
-2. 実装計画: `docs/superpowers/plans/2026-09-08-magocoro-web-letter.md`
+1. `docs/superpowers/specs/2026-09-10-magocoro-letter-bundle-design.md`（要件・設計の正本。自己完結）
+2. `docs/superpowers/plans/2026-09-10-magocoro-letter-bundle.md`（本仕様の実装計画。写真のみの旧計画は使わない）
 3. `docs/PLAN-20260908-300-magocoro-growth-share.md`（着想メモ。本仕様の制約源ではない）
 4. 新規開発の要件・計画は `docs/superpowers/specs/` と `docs/superpowers/plans/` に置く。作り方は「開発フロー」参照。
-5. 旧下書き（使わない）: `docs/superpowers/specs/2026-09-08-magocoro-mvp-design.md` / `docs/superpowers/plans/2026-09-08-magocoro-mvp-implementation.md`
+5. 旧正本（使わない）: `docs/superpowers/specs/2026-09-08-magocoro-web-letter-design.md` / `docs/superpowers/plans/2026-09-08-magocoro-web-letter.md`
+6. 旧下書き（使わない）: `docs/superpowers/specs/2026-09-08-magocoro-mvp-design.md` / `docs/superpowers/plans/2026-09-08-magocoro-mvp-implementation.md`
 
 ## Commands
 
@@ -24,10 +25,10 @@
 
 ## Architecture
 
-- 作る画面 → `LetterApi`（`src/api/letters.ts`）→ Worker → R2。手紙画面は取得とスタンプだけ同じ窓口を使う。
-- 画面は `LetterApi` にだけ依存する。LINEやハガキを足すときは Worker の奥だけ増やす。
+- 作る画面 → 端末圧縮 → `LetterApi`（`src/api/letters.ts`）→ Worker → R2。手紙画面は取得・素材・スタンプだけ同じ窓口を使う。
+- 画面は `LetterApi` にだけ依存する。LINE公式や課金を足すときは Worker の奥だけ増やす。
 - 文面生成はしない。本文は親が書いたものがそのまま載る。
-- 写真と手紙JSONは R2。ブラウザは R2 を直接叩かない。1枚10MBまで、JPEG / PNG / WebP、1〜3枚。
+- R2 に置くのは手紙JSONと圧縮済み素材だけ。画像1〜3枚 XOR 動画1本。音声は任意。ブラウザは R2 を直接叩かない。まとめ動画は端末だけで作り、R2 に上げない。
 
 ## Working rules
 
@@ -35,7 +36,7 @@
 - TDD厳守（RED-GREEN-REFACTOR）。プレースホルダ・ダミー文面禁止。各タスク完了ごとにコミットし、次のタスクへの進行確認を取る。
 - 実装タスクが完了したら、検証後に必ず作業ブランチからPRを作成して引き渡す。マージ・デプロイは明示依頼がない限り実施しない。
 - **設計書の制約が最優先。** UIは日本語のみ（`lang="ja"`）、コンテンツ面は和紙・便箋の質感（`page #f7f2e9` / `surface #fffdf8` / `text #33302a` / `muted #8a7f72` / `line #ddd2c2` / `accent #c4543a`）、切手風フレームは白縁＋波線、紫・ネオン・金・絵文字の装飾利用禁止、見出しと本文は Noto Sans JP、動き150–400ms（`prefers-reduced-motion` で無効化）、タップ面44px以上・スタンプボタンに `aria-label`＋`aria-pressed`、ページ全体の横スクロール禁止・最大幅モバイルカラム（`max-w-lg`）中央寄せ、秘密値はリポジトリに入れない。外部LLM・決済・LINEにはつながない（自前WorkerとフォントCDNのみ）。
-- 未知ID・破損データは落とさず専用表示＋作る導線にする。例外画面を出さない。
+- 未知ID・破損データは落とさず専用表示＋作る導線にする。期限切れは閉じた表示＋作る導線。例外画面を出さない。
 - デプロイ・公開URL確定は明示依頼があるまで実装外。秘密値はリポジトリに入れない。
 
 ## 開発フロー（superpowers）
