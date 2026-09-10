@@ -7,7 +7,8 @@ export type Stamps = {
 
 export type LetterMediaPublic =
   | { kind: "photos"; photoUrls: string[] }
-  | { kind: "clip"; clipUrl: string };
+  | { kind: "clip"; clipUrl: string }
+  | { kind: "mixed"; photoUrls: string[]; clipUrl: string };
 
 export type LetterPublic = {
   id: string;
@@ -25,7 +26,10 @@ export type CreateLetterInput = {
   addressTo: string;
   body: string;
   signature: string;
-  media: { kind: "photos"; photos: File[] } | { kind: "clip"; clip: File };
+  media:
+    | { kind: "photos"; photos: File[] }
+    | { kind: "clip"; clip: File }
+    | { kind: "mixed"; photos: File[]; clip: File };
   audio?: File;
 };
 

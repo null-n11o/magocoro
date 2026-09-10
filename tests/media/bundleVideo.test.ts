@@ -12,6 +12,9 @@ import {
 } from "../../src/media/bundleVideo";
 
 describe("keepShareKind", () => {
+  it("uses video for mixed media without voice", () => {
+    expect(keepShareKind({ media: { kind: "mixed" }, audioUrl: null })).toBe("video");
+  });
   it("uses an image when the letter has photos and no voice", () => {
     expect(
       keepShareKind({

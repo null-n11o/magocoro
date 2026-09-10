@@ -18,10 +18,10 @@ export type PaperBundlePlan = {
 };
 
 export function keepShareKind(letter: {
-  media: { kind: "photos" | "clip" };
+  media: { kind: "photos" | "clip" | "mixed" };
   audioUrl: string | null;
 }): KeepShareKind {
-  if (letter.media.kind === "clip" || letter.audioUrl) return "video";
+  if (letter.media.kind !== "photos" || letter.audioUrl) return "video";
   return "image";
 }
 

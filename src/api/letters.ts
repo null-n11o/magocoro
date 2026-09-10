@@ -14,9 +14,10 @@ export function createLetterApi(fetchImpl: typeof fetch = fetch): LetterApi {
       form.set("addressTo", input.addressTo);
       form.set("body", input.body);
       form.set("signature", input.signature);
-      if (input.media.kind === "photos") {
+      if (input.media.kind !== "clip") {
         for (const photo of input.media.photos) form.append("photos", photo);
-      } else {
+      }
+      if (input.media.kind !== "photos") {
         form.set("clip", input.media.clip);
       }
       if (input.audio) form.set("audio", input.audio);
