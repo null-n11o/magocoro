@@ -1,28 +1,116 @@
-export function photoDurationsMs(
-  count: number,
-  audioDurationSec: number | null,
-): number[] {
-  if (count < 1) return [];
-  const total =
-    audioDurationSec && audioDurationSec > 0
-      ? Math.round(audioDurationSec * 1000)
-      : Math.min(15000, Math.max(6000, count * 3000));
-  const each = Math.floor(total / count);
-  return Array.from({ length: count }, (_, index) =>
-    index === count - 1 ? total - each * (count - 1) : each,
-  );
+export type KeepShareKind = "image" | "video";
+
+export type PaperBundlePlan = {
+  paper: CanvasImageSource;
+  width: number;
+  height: number;
+  durationMs: number;
+  audio?: Blob;
+  clip?: {
+    source: CanvasImageSource;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    mute: boolean;
+    useClipAudio: boolean;
+  };
+};
+
+export function keepShareKind(letter: {
+  media: { kind: "photos" | "clip" };
+  audioUrl: string | null;
+}): KeepShareKind {
+  if (letter.media.kind === "clip" || letter.audioUrl) return "video";
+  return "image";
 }
 
-export function planClipBundle(hasParentAudio: boolean): {
+export function letterBundleDurationMs(input: {
+  audioDurationSec: number | null;
+  clipDurationSec: number | null;
+}): number {
+  const audioMs =
+    input.audioDurationSec && input.audioDurationSec > 0
+      ? Math.round(input.audioDurationSec * 1000)
+      : 0;
+  const clipMs =
+    input.clipDurationSec && input.clipDurationSec > 0
+      ? Math.round(input.clipDurationSec * 1000)
+      : 0;
+  return Math.max(audioMs, clipMs);
+}
+
+export function clipInPaperPlan(hasParentAudio: boolean): {
   muteClip: boolean;
   useParentAudio: boolean;
-  overlayBody: boolean;
 } {
   return {
     muteClip: hasParentAudio,
     useParentAudio: hasParentAudio,
-    overlayBody: true,
   };
+}
+
+export function mediaRectInPaper(
+  paper: HTMLElement,
+  media: HTMLElement,
+): { x: number; y: number; width: number; height: number } {
+  const paperRect = paper.getBoundingClientRect();
+  const mediaRect = media.getBoundingClientRect();
+  return {
+    x: mediaRect.left - paperRect.left,
+    y: mediaRect.top - paperRect.top,
+    width: mediaRect.width,
+    height: mediaRect.height,
+  };
+}
+
+export function keepRecorderMime(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+  const candidates = [
+    "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4;codecs=avc1",
+    "video/mp4",
+    "video/webm;codecs=vp9",
+    "video/webm",
+  ];
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
+}
+
+export function keepVideoFile(blob: Blob): File {
+  const raw = blob.type || "video/webm";
+  if (raw.includes("mp4")) {
+    return new File([blob], "magocoro.mp4", { type: "video/mp4" });
+  }
+  const type = raw.startsWith("video/webm") ? raw.split(";")[0] : "video/webm";
+  return new File([blob], "magocoro.webm", { type });
+}
+
+export async function renderPaperBundle(input: {
+  plan: PaperBundlePlan;
+  record: (plan: PaperBundlePlan) => Promise<Blob>;
+}): Promise<Blob> {
+  return input.record(input.plan);
+}
+
+export async function snapshotToJpeg(
+  canvas: HTMLCanvasElement,
+  encode: (source: HTMLCanvasElement) => Promise<Blob> = canvasToJpeg,
+): Promise<Blob> {
+  return encode(canvas);
+}
+
+export function canvasToJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) reject(new Error("no_jpeg"));
+        else resolve(blob);
+      },
+      "image/jpeg",
+      0.92,
+    );
+  });
 }
 
 export async function addParentAudioTrack(
@@ -50,86 +138,35 @@ export async function addParentAudioTrack(
   stream.addTrack(track);
 }
 
-export async function renderPhotoBundle(input: {
-  frames: Array<{ source: CanvasImageSource; durationMs: number }>;
-  audio?: Blob;
-  width: number;
-  height: number;
-  record: (session: {
-    frames: Array<{ source: CanvasImageSource; durationMs: number }>;
-    audio?: Blob;
-    width: number;
-    height: number;
-  }) => Promise<Blob>;
-}): Promise<Blob> {
-  return input.record({
-    frames: input.frames,
-    audio: input.audio,
-    width: input.width,
-    height: input.height,
-  });
+function keepRecorder(stream: MediaStream): MediaRecorder {
+  const mime = keepRecorderMime();
+  if (mime) {
+    try {
+      return new MediaRecorder(stream, { mimeType: mime });
+    } catch {
+      // Browser listed the type but rejected it; use the default container.
+    }
+  }
+  return new MediaRecorder(stream);
 }
 
-export async function recordTimeline(session: {
-  frames: Array<{ source: CanvasImageSource; durationMs: number }>;
-  audio?: Blob;
-  width: number;
-  height: number;
-}): Promise<Blob> {
+export async function recordPaperCanvas(plan: PaperBundlePlan): Promise<Blob> {
   const canvas = document.createElement("canvas");
-  canvas.width = session.width;
-  canvas.height = session.height;
+  canvas.width = plan.width;
+  canvas.height = plan.height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("no_canvas");
   const stream = canvas.captureStream(24);
-  if (session.audio) {
-    await addParentAudioTrack(stream, session.audio);
-  }
-  const recorder = new MediaRecorder(stream);
-  const chunks: Blob[] = [];
-  recorder.ondataavailable = (event) => {
-    if (event.data.size > 0) chunks.push(event.data);
-  };
-  const stopped = new Promise<void>((resolve) => {
-    recorder.onstop = () => resolve();
-  });
-  recorder.start();
-  for (const frame of session.frames) {
-    ctx.fillStyle = "#f7f2e9";
-    ctx.fillRect(0, 0, session.width, session.height);
-    ctx.drawImage(frame.source, 0, 0, session.width, session.height);
-    await new Promise((resolve) => window.setTimeout(resolve, frame.durationMs));
-  }
-  recorder.stop();
-  await stopped;
-  return new Blob(chunks, { type: recorder.mimeType || "video/webm" });
-}
-
-export async function recordClipBundle(input: {
-  clip: Blob;
-  body: string;
-  parentAudio?: Blob;
-}): Promise<Blob> {
-  const plan = planClipBundle(Boolean(input.parentAudio));
-  const url = URL.createObjectURL(input.clip);
-  const video = document.createElement("video");
-  video.src = url;
-  video.muted = plan.muteClip;
-  await video.play();
-  const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth || 720;
-  canvas.height = video.videoHeight || 1280;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("no_canvas");
-  const stream = canvas.captureStream(24);
-  if (plan.useParentAudio && input.parentAudio) {
-    await addParentAudioTrack(stream, input.parentAudio);
-  } else {
-    const clipAudio = (video as HTMLVideoElement & { captureStream?: () => MediaStream }).captureStream?.();
+  if (plan.audio) {
+    await addParentAudioTrack(stream, plan.audio);
+  } else if (plan.clip?.useClipAudio) {
+    const clipAudio = (
+      plan.clip.source as HTMLVideoElement & { captureStream?: () => MediaStream }
+    ).captureStream?.();
     const track = clipAudio?.getAudioTracks()[0];
     if (track) stream.addTrack(track);
   }
-  const recorder = new MediaRecorder(stream);
+  const recorder = keepRecorder(stream);
   const chunks: Blob[] = [];
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) chunks.push(event.data);
@@ -137,24 +174,36 @@ export async function recordClipBundle(input: {
   const stopped = new Promise<void>((resolve) => {
     recorder.onstop = () => resolve();
   });
+  const clipEl = plan.clip?.source as HTMLVideoElement | undefined;
+  if (clipEl && typeof clipEl.play === "function") {
+    clipEl.muted = Boolean(plan.clip?.mute);
+    clipEl.currentTime = 0;
+    await clipEl.play();
+  }
   recorder.start();
-  const draw = () => {
-    if (video.ended) {
-      recorder.stop();
-      return;
-    }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    if (plan.overlayBody) {
-      ctx.fillStyle = "rgba(51, 48, 42, 0.55)";
-      ctx.fillRect(0, canvas.height - 64, canvas.width, 64);
-      ctx.fillStyle = "#fffdf8";
-      ctx.font = "20px 'Noto Sans JP', sans-serif";
-      ctx.fillText(input.body.slice(0, 40), 16, canvas.height - 28);
-    }
-    requestAnimationFrame(draw);
-  };
-  draw();
+  const started = performance.now();
+  await new Promise<void>((resolve) => {
+    const draw = () => {
+      ctx.drawImage(plan.paper, 0, 0, plan.width, plan.height);
+      if (plan.clip) {
+        ctx.drawImage(
+          plan.clip.source,
+          plan.clip.x,
+          plan.clip.y,
+          plan.clip.width,
+          plan.clip.height,
+        );
+      }
+      if (performance.now() - started >= plan.durationMs) {
+        recorder.stop();
+        resolve();
+        return;
+      }
+      requestAnimationFrame(draw);
+    };
+    draw();
+  });
   await stopped;
-  URL.revokeObjectURL(url);
+  clipEl?.pause?.();
   return new Blob(chunks, { type: recorder.mimeType || "video/webm" });
 }

@@ -8,7 +8,7 @@ import { LetterPage } from "../../src/letter/LetterPage";
 vi.mock("../../src/letter/buildKeepVideo", () => ({
   buildKeepVideo: vi.fn(
     async () =>
-      new File([new Uint8Array(8)], "magocoro.webm", { type: "video/webm" }),
+      new File([new Uint8Array(8)], "magocoro.jpg", { type: "image/jpeg" }),
   ),
 }));
 vi.mock("../../src/media/shareBundle", () => ({
@@ -239,12 +239,31 @@ describe("LetterPage", () => {
     expect(screen.getByText(window.location.href)).toBeInTheDocument();
   });
 
-  it("offers a keep-video share without removing URL copy", async () => {
+  it("offers an image share for a photo letter without voice", async () => {
     const user = userEvent.setup();
+    const { buildKeepVideo } = await import("../../src/letter/buildKeepVideo");
     renderLetter(apiWithLetter());
     await screen.findByText("じいじ、ばあばへ");
-    await user.click(screen.getByRole("button", { name: "動画にして送る" }));
+    const paper = screen.getByRole("article", { name: "お手紙" });
+    await user.click(screen.getByRole("button", { name: "画像にして送る" }));
+    expect(buildKeepVideo).toHaveBeenCalledWith(letter, paper);
     expect(await screen.findByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "動画にして送る" })).not.toBeInTheDocument();
+  });
+
+  it("offers a keep-video share when the letter has a clip or voice", async () => {
+    const clipLetter: LetterPublic = {
+      ...letter,
+      media: { kind: "clip", clipUrl: `/api/letters/${letter.id}/clip` },
+    };
+    renderLetter(
+      apiWithLetter({
+        getLetter: vi.fn().mockResolvedValue({ status: "ok", letter: clipLetter }),
+      }),
+    );
+    await screen.findByText("じいじ、ばあばへ");
+    expect(screen.getByRole("button", { name: "動画にして送る" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "画像にして送る" })).not.toBeInTheDocument();
   });
 
   it("keeps URL copy when bundling fails", async () => {
@@ -253,9 +272,9 @@ describe("LetterPage", () => {
     vi.mocked(buildKeepVideo).mockRejectedValueOnce(new Error("fail"));
     renderLetter(apiWithLetter());
     await screen.findByText("じいじ、ばあばへ");
-    await user.click(screen.getByRole("button", { name: "動画にして送る" }));
+    await user.click(screen.getByRole("button", { name: "画像にして送る" }));
     expect(
-      await screen.findByText("動画にできませんでした。リンクを送ってください"),
+      await screen.findByText("画像にできませんでした。リンクを送ってください"),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
   });
@@ -265,6 +284,30 @@ describe("LetterPage", () => {
     const { shareOrSaveVideo } = await import("../../src/media/shareBundle");
     vi.mocked(shareOrSaveVideo).mockResolvedValueOnce("saved");
     renderLetter(apiWithLetter());
+    await screen.findByText("じいじ、ばあばへ");
+    await user.click(screen.getByRole("button", { name: "画像にして送る" }));
+    expect(
+      await screen.findByText("LINEのトークに、この画像を送ってください"),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the video wording when a clip letter is saved locally", async () => {
+    const user = userEvent.setup();
+    const { buildKeepVideo } = await import("../../src/letter/buildKeepVideo");
+    const { shareOrSaveVideo } = await import("../../src/media/shareBundle");
+    vi.mocked(buildKeepVideo).mockResolvedValueOnce(
+      new File([new Uint8Array(8)], "magocoro.webm", { type: "video/webm" }),
+    );
+    vi.mocked(shareOrSaveVideo).mockResolvedValueOnce("saved");
+    const clipLetter: LetterPublic = {
+      ...letter,
+      media: { kind: "clip", clipUrl: `/api/letters/${letter.id}/clip` },
+    };
+    renderLetter(
+      apiWithLetter({
+        getLetter: vi.fn().mockResolvedValue({ status: "ok", letter: clipLetter }),
+      }),
+    );
     await screen.findByText("じいじ、ばあばへ");
     await user.click(screen.getByRole("button", { name: "動画にして送る" }));
     expect(
