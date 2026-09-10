@@ -1,8 +1,8 @@
 # Magocoro Web手紙 設計書
 
 - 日付: 2026-09-08
-- 状態: 承認済み。新規開発はこの設計を土台にし、変更時はこのファイルを更新する。
-- 置き換え: `docs/superpowers/specs/2026-09-08-magocoro-mvp-design.md`（localStorage・文面生成の下書き。本ファイルが正本）
+- 状態: **正本ではない。** 2026-09-10 以降の正本は `docs/superpowers/specs/2026-09-10-magocoro-letter-bundle-design.md`。
+- 置き換え元: `docs/superpowers/specs/2026-09-08-magocoro-mvp-design.md`（localStorage・文面生成の下書き）
 
 ## 1. ゴール
 

@@ -1,7 +1,26 @@
-import { addStamp, createLetter, getLetter, getPhoto, toPublic } from "./store";
+import {
+  addStamp,
+  createLetter,
+  getAudio,
+  getClip,
+  getLetter,
+  getPhoto,
+  toPublic,
+} from "./store";
 
 function notFound(): Response {
   return Response.json({ error: "not_found" }, { status: 404 });
+}
+function gone(): Response {
+  return Response.json({ error: "expired" }, { status: 410 });
+}
+function mediaResponse(bytes: ArrayBuffer, contentType: string): Response {
+  return new Response(bytes, {
+    headers: {
+      "content-type": contentType,
+      "x-content-type-options": "nosniff",
+    },
+  });
 }
 
 export default {
@@ -33,22 +52,32 @@ export default {
     const id = parts[2] ?? "";
 
     if (request.method === "GET" && parts.length === 3) {
-      const record = await getLetter(env, id);
-      if (!record) return notFound();
-      return Response.json(toPublic(record));
+      const result = await getLetter(env, id);
+      if (result.status === "not_found") return notFound();
+      if (result.status === "expired") return gone();
+      return Response.json(toPublic(result.record));
     }
 
     if (request.method === "GET" && parts[3] === "photos" && parts.length === 5) {
       const n = Number(parts[4]);
-      if (!Number.isInteger(n)) return notFound();
       const photo = await getPhoto(env, id, n);
-      if (!photo) return notFound();
-      return new Response(photo.bytes, {
-        headers: {
-          "content-type": photo.contentType,
-          "x-content-type-options": "nosniff",
-        },
-      });
+      if (photo.status === "expired") return gone();
+      if (photo.status !== "ok") return notFound();
+      return mediaResponse(photo.bytes, photo.contentType);
+    }
+
+    if (request.method === "GET" && parts[3] === "clip" && parts.length === 4) {
+      const clip = await getClip(env, id);
+      if (clip.status === "expired") return gone();
+      if (clip.status !== "ok") return notFound();
+      return mediaResponse(clip.bytes, clip.contentType);
+    }
+
+    if (request.method === "GET" && parts[3] === "audio" && parts.length === 4) {
+      const audio = await getAudio(env, id);
+      if (audio.status === "expired") return gone();
+      if (audio.status !== "ok") return notFound();
+      return mediaResponse(audio.bytes, audio.contentType);
     }
 
     if (request.method === "POST" && parts[3] === "stamps" && parts.length === 4) {
@@ -64,6 +93,7 @@ export default {
         return Response.json({ error: "invalid_input" }, { status: 400 });
       }
       if (result === "not_found") return notFound();
+      if (result === "expired") return gone();
       if (result === "unavailable") {
         return Response.json({ error: "unavailable" }, { status: 503 });
       }
