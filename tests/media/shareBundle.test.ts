@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { shareOrSaveVideo } from "../../src/media/shareBundle";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { downloadFile, shareOrSaveVideo } from "../../src/media/shareBundle";
 
 const file = new File([new Uint8Array(8)], "magocoro.webm", { type: "video/webm" });
 
@@ -14,7 +14,7 @@ describe("shareOrSaveVideo", () => {
         save,
       }),
     ).resolves.toBe("shared");
-    expect(share).toHaveBeenCalled();
+    expect(share).toHaveBeenCalledWith({ files: [file], title: "Magocoro" });
     expect(save).not.toHaveBeenCalled();
   });
 
@@ -31,5 +31,32 @@ describe("shareOrSaveVideo", () => {
       }),
     ).resolves.toBe("saved");
     expect(save).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("downloadFile", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("appends the link and delays revoking until download can start", () => {
+    vi.useFakeTimers();
+    const objectUrl = "blob:http://localhost/magocoro";
+    vi.spyOn(URL, "createObjectURL").mockReturnValue(objectUrl);
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    downloadFile(file);
+
+    const anchor = document.body.querySelector(`a[download="${file.name}"]`);
+    expect(anchor).toBeInstanceOf(HTMLAnchorElement);
+    expect(anchor).toHaveAttribute("href", objectUrl);
+    expect(click).toHaveBeenCalled();
+    expect(revoke).not.toHaveBeenCalled();
+
+    vi.runAllTimers();
+    expect(revoke).toHaveBeenCalledWith(objectUrl);
+    expect(document.body.contains(anchor)).toBe(false);
   });
 });

@@ -25,6 +25,10 @@ export function downloadFile(file: File): void {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = file.name;
+  document.body.append(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => {
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, 0);
 }
