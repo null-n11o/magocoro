@@ -110,6 +110,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
     const next = [...photos];
     const addedPhotoKeys: string[] = [];
     for (const file of Array.from(files)) {
+      if (mediaKindRef.current !== "photos") return;
       if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
         setMediaError("この写真は使えません");
         continue;
@@ -117,9 +118,11 @@ export function ComposePage({ api }: { api: LetterApi }) {
       if (next.length >= 3) break;
       try {
         const compressed = await compressImage(file);
+        if (mediaKindRef.current !== "photos") return;
         next.push(compressed);
         addedPhotoKeys.push(getPhotoKey(compressed));
       } catch {
+        if (mediaKindRef.current !== "photos") return;
         setMediaError("この写真は使えません");
       }
     }
@@ -134,12 +137,12 @@ export function ComposePage({ api }: { api: LetterApi }) {
     const file = files?.[0];
     if (!file) return;
     const result = await prepareClip(file, measureDuration, transcodeClipTo720p);
+    if (mediaKindRef.current !== "clip") return;
     if (!result.ok) {
       setClip(null);
       setMediaError(result.reason === "too_long" ? "30秒以内にしてください" : "この動画は使えません");
       return;
     }
-    if (mediaKindRef.current !== "clip") return;
     setMediaError("");
     setClip(result.file);
   }
