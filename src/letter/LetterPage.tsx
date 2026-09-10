@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { LetterApi, LetterPublic, StampKind } from "../api/types";
-import botanicalSprig from "../assets/botanical-sprig.png";
+import { LetterPaper } from "./LetterPaper";
 import { keepShareKind } from "../media/bundleVideo";
 import { buildKeepVideo } from "./buildKeepVideo";
 import { downloadFile, shareOrSaveVideo } from "../media/shareBundle";
@@ -152,13 +152,6 @@ export function LetterPage({ api }: { api: LetterApi }) {
 
   return (
     <main className="page-shell letter-shell">
-      <img src={botanicalSprig} alt="" aria-hidden="true" className="botanical botanical-top" />
-      <img
-        src={botanicalSprig}
-        alt=""
-        aria-hidden="true"
-        className="botanical botanical-bottom"
-      />
       <div className="page-column">
         <header className="letter-header" aria-label="便箋のヘッダー">
           <div className="letter-meta">
@@ -173,40 +166,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
           <p className="letter-kicker">お孫さんからのお手紙です</p>
         </header>
 
-        <article ref={paperRef} className="letter-paper" aria-label="お手紙">
-          <div
-            className="letter-photo-mat"
-            role="group"
-            aria-label={letter.media.kind === "photos" ? "手紙の写真" : undefined}
-          >
-            {letter.media.kind === "photos" ? (
-              <div className={`letter-photo-grid photo-count-${letter.media.photoUrls.length}`}>
-                {letter.media.photoUrls.map((src, n) => (
-                  <img
-                    key={src}
-                    src={src}
-                    alt={`手紙の写真 ${n + 1}`}
-                    className="stamp-frame letter-photo"
-                  />
-                ))}
-              </div>
-            ) : (
-              <video
-                className="stamp-frame letter-clip"
-                src={letter.media.clipUrl}
-                controls={!bundling}
-                playsInline
-                aria-label="手紙の動画"
-              />
-            )}
-          </div>
-          {letter.audioUrl ? (
-            <audio className="letter-audio" src={letter.audioUrl} controls aria-label="手紙の声" />
-          ) : null}
-          <p className="letter-address">{letter.addressTo}</p>
-          <p className="letter-body">{letter.body}</p>
-          <p className="letter-signature">{letter.signature}</p>
-        </article>
+        <LetterPaper ref={paperRef} photoUrls={letter.media.kind === "clip" ? [] : letter.media.photoUrls} clipUrl={letter.media.kind === "photos" ? undefined : letter.media.clipUrl} audioUrl={letter.audioUrl} addressTo={letter.addressTo} body={letter.body} signature={letter.signature} capturing={bundling} />
 
         <section className="share-section" aria-label="手紙を共有する">
           <p className="share-note">
@@ -264,12 +224,12 @@ export function LetterPage({ api }: { api: LetterApi }) {
           <div className="stamp-grid">
             <button
               type="button"
-              aria-label="読んだよ"
+              aria-label="よんだよ"
               aria-pressed={pressed.read}
               onClick={() => onStamp("read")}
               className="stamp-button"
             >
-              <span>読んだよ</span>
+              <span>よんだよ</span>
               <strong>{letter.stamps.read}</strong>
             </button>
             <button

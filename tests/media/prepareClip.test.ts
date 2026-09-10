@@ -10,6 +10,15 @@ describe("prepareClip", () => {
     vi.restoreAllMocks();
   });
 
+  it("preserves source audio by keeping supported small MP4 and WebM originals", async () => {
+    for (const type of ["video/mp4", "video/webm", "video/quicktime"]) {
+      const original = video(type, 2000);
+      const silent = video("video/webm", 1000);
+      const result = await prepareClip(original, async () => 2, async () => silent);
+      expect(result).toEqual({ok:true,file:original});
+      if (result.ok) expect(result.file).toBe(original);
+    }
+  });
   it("rejects clips longer than 30 seconds", async () => {
     const result = await prepareClip(
       video("video/mp4", 1000),
@@ -37,6 +46,7 @@ describe("prepareClip", () => {
 
   it("returns the transcoded file when transcode succeeds", async () => {
     const original = video("video/quicktime", 2000);
+    Object.defineProperty(original, "size", { value: 9 * 1024 * 1024 });
     const out = video("video/webm", 500);
     const transcode = vi.fn().mockResolvedValue(out);
     const result = await prepareClip(original, async () => 12, transcode);
@@ -90,6 +100,7 @@ describe("prepareClip", () => {
         Object.defineProperty(el, "videoWidth", { configurable: true, get: () => 0 });
         Object.defineProperty(el, "videoHeight", { configurable: true, get: () => 0 });
         el.play = () => Promise.resolve();
+        el.pause = () => {};
         return el;
       }
       return originalCreate(tagName, options as ElementCreationOptions);

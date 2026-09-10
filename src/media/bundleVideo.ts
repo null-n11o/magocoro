@@ -18,10 +18,10 @@ export type PaperBundlePlan = {
 };
 
 export function keepShareKind(letter: {
-  media: { kind: "photos" | "clip" };
+  media: { kind: "photos" | "clip" | "mixed" };
   audioUrl: string | null;
 }): KeepShareKind {
-  if (letter.media.kind === "clip" || letter.audioUrl) return "video";
+  if (letter.media.kind !== "photos" || letter.audioUrl) return "video";
   return "image";
 }
 
@@ -113,29 +113,63 @@ export function canvasToJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-export async function addParentAudioTrack(
+export type Soundtrack = {
+  start: () => Promise<void>;
+  dispose: () => Promise<void>;
+};
+
+// A dedicated element avoids permanently attaching a Web Audio source to the visible player.
+export async function prepareSoundtrack(
   stream: MediaStream,
-  audioBlob: Blob,
-): Promise<void> {
+  url: string,
+): Promise<Soundtrack> {
   const audio = document.createElement("audio");
-  audio.src = URL.createObjectURL(audioBlob);
-  if (audio.readyState < HTMLMediaElement.HAVE_METADATA) {
-    await new Promise<void>((resolve, reject) => {
-      audio.addEventListener("loadedmetadata", () => resolve(), { once: true });
-      audio.addEventListener(
-        "error",
-        () => reject(new Error("no_parent_audio")),
-        { once: true },
-      );
-    });
+  audio.src = url;
+  audio.preload = "auto";
+  let context: AudioContext | undefined;
+  let source: MediaElementAudioSourceNode | undefined;
+  let destination: MediaStreamAudioDestinationNode | undefined;
+  let track: MediaStreamTrack | undefined;
+  const dispose = async () => {
+    audio.pause();
+    source?.disconnect();
+    destination?.disconnect();
+    track?.stop();
+    if (context) await context.close();
+    audio.removeAttribute("src");
+  };
+  try {
+    if (typeof AudioContext !== "undefined") {
+      context = new AudioContext();
+      source = context.createMediaElementSource(audio);
+      destination = context.createMediaStreamDestination();
+      source.connect(destination);
+      await context.resume();
+      track = destination.stream.getAudioTracks()[0];
+    } else {
+      const capture = (
+        audio as HTMLAudioElement & { captureStream?: () => MediaStream }
+      ).captureStream;
+      if (!capture) throw new Error("no_audio_capture");
+      // Implementations exposing captureStream may not expose tracks until playback starts.
+      await audio.play();
+      track = capture.call(audio).getAudioTracks()[0];
+      audio.pause();
+      audio.currentTime = 0;
+    }
+    if (!track) throw new Error("no_audio_capture");
+    stream.addTrack(track);
+    return {
+      start: async () => {
+        audio.currentTime = 0;
+        await audio.play();
+      },
+      dispose,
+    };
+  } catch (error) {
+    await dispose();
+    throw error;
   }
-  await audio.play();
-  const captured = (
-    audio as HTMLMediaElement & { captureStream?: () => MediaStream }
-  ).captureStream?.();
-  const track = captured?.getAudioTracks()[0];
-  if (!track) throw new Error("no_parent_audio");
-  stream.addTrack(track);
 }
 
 function keepRecorder(stream: MediaStream): MediaRecorder {
@@ -150,6 +184,30 @@ function keepRecorder(stream: MediaStream): MediaRecorder {
   return new MediaRecorder(stream);
 }
 
+export function drawClipCover(
+  ctx: CanvasRenderingContext2D,
+  clip: NonNullable<PaperBundlePlan["clip"]>,
+): void {
+  const video = clip.source as HTMLVideoElement;
+  const sourceWidth = video.videoWidth;
+  const sourceHeight = video.videoHeight;
+  if (!sourceWidth || !sourceHeight) return;
+  const scale = Math.max(clip.width / sourceWidth, clip.height / sourceHeight);
+  const width = clip.width / scale;
+  const height = clip.height / scale;
+  ctx.drawImage(
+    clip.source,
+    (sourceWidth - width) / 2,
+    (sourceHeight - height) / 2,
+    width,
+    height,
+    clip.x,
+    clip.y,
+    clip.width,
+    clip.height,
+  );
+}
+
 export async function recordPaperCanvas(plan: PaperBundlePlan): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = plan.width;
@@ -157,53 +215,90 @@ export async function recordPaperCanvas(plan: PaperBundlePlan): Promise<Blob> {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("no_canvas");
   const stream = canvas.captureStream(24);
-  if (plan.audio) {
-    await addParentAudioTrack(stream, plan.audio);
-  } else if (plan.clip?.useClipAudio) {
-    const clipAudio = (
-      plan.clip.source as HTMLVideoElement & { captureStream?: () => MediaStream }
-    ).captureStream?.();
-    const track = clipAudio?.getAudioTracks()[0];
-    if (track) stream.addTrack(track);
-  }
-  const recorder = keepRecorder(stream);
-  const chunks: Blob[] = [];
-  recorder.ondataavailable = (event) => {
-    if (event.data.size > 0) chunks.push(event.data);
-  };
-  const stopped = new Promise<void>((resolve) => {
-    recorder.onstop = () => resolve();
-  });
-  const clipEl = plan.clip?.source as HTMLVideoElement | undefined;
-  if (clipEl && typeof clipEl.play === "function") {
-    clipEl.muted = Boolean(plan.clip?.mute);
-    clipEl.currentTime = 0;
-    await clipEl.play();
-  }
-  recorder.start();
-  const started = performance.now();
-  await new Promise<void>((resolve) => {
+  const clip = plan.clip?.source as HTMLVideoElement | undefined;
+  const original = clip
+    ? { muted: clip.muted, time: clip.currentTime, paused: clip.paused }
+    : null;
+  const audioUrl = plan.audio ? URL.createObjectURL(plan.audio) : undefined;
+  let sound: Soundtrack | undefined;
+  let recorder: MediaRecorder | undefined;
+  let animation = 0;
+  let cancelled = false;
+  try {
+    const soundUrl =
+      audioUrl ??
+      (plan.clip?.useClipAudio ? clip?.currentSrc || clip?.src : undefined);
+    if (plan.clip?.useClipAudio && !soundUrl)
+      throw new Error("no_audio_capture");
+    if (soundUrl) sound = await prepareSoundtrack(stream, soundUrl);
+    if (clip) {
+      clip.pause();
+      clip.muted = true; // The dedicated soundtrack supplies the selected sound exactly once.
+      clip.currentTime = 0;
+    }
+    recorder = keepRecorder(stream);
+    const chunks: Blob[] = [];
+    recorder.ondataavailable = (event) => {
+      if (event.data.size) chunks.push(event.data);
+    };
+    const stopped = new Promise<void>((resolve) => {
+      if (recorder) recorder.onstop = () => resolve();
+    });
+    const failed = new Promise<never>((_, reject) => {
+      if (recorder)
+        recorder.onerror = () => reject(new Error("recording_failed"));
+    });
+    const activeRecorder = recorder;
     const draw = () => {
       ctx.drawImage(plan.paper, 0, 0, plan.width, plan.height);
-      if (plan.clip) {
-        ctx.drawImage(
-          plan.clip.source,
-          plan.clip.x,
-          plan.clip.y,
-          plan.clip.width,
-          plan.clip.height,
-        );
-      }
-      if (performance.now() - started >= plan.durationMs) {
-        recorder.stop();
-        resolve();
-        return;
-      }
-      requestAnimationFrame(draw);
+      if (plan.clip) drawClipCover(ctx, plan.clip);
     };
-    draw();
-  });
-  await stopped;
-  clipEl?.pause?.();
-  return new Blob(chunks, { type: recorder.mimeType || "video/webm" });
+    const record = async () => {
+      draw();
+      activeRecorder.start();
+      // Start sound only after the recorder is running, so its beginning cannot be lost.
+      await Promise.all([sound?.start(), clip?.play()]);
+      if (cancelled) return;
+      const started = performance.now();
+      await new Promise<void>((resolve, reject) => {
+        const frame = () => {
+          if (cancelled) {
+            resolve();
+            return;
+          }
+          try {
+            draw();
+            if (performance.now() - started >= plan.durationMs) {
+              resolve();
+              return;
+            }
+            animation = requestAnimationFrame(frame);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        frame();
+      });
+      if (cancelled) return;
+      if (activeRecorder.state === "recording") activeRecorder.stop();
+      await stopped;
+    };
+    // Attach the error handler in the same turn as starting recording. An error interrupts
+    // both playback preparation and the frame loop rather than waiting for letter duration.
+    await Promise.race([record(), failed]);
+    return new Blob(chunks, { type: recorder.mimeType || "video/webm" });
+  } finally {
+    cancelled = true;
+    cancelAnimationFrame(animation);
+    if (recorder?.state === "recording") recorder.stop();
+    await sound?.dispose().catch(() => undefined);
+    stream.getTracks().forEach((track) => track.stop());
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    if (clip && original) {
+      clip.pause();
+      clip.muted = original.muted;
+      clip.currentTime = original.time;
+      if (!original.paused) await clip.play().catch(() => undefined);
+    }
+  }
 }

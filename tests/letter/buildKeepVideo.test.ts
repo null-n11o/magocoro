@@ -54,6 +54,27 @@ function paperWithClip(): { paper: HTMLElement; clip: HTMLVideoElement } {
 }
 
 describe("buildKeepVideo", () => {
+  it("keeps adjacent mixed photos in the static paper while animating only the clip", async () => {
+    const { paper, clip } = paperWithClip();
+    const photos = [document.createElement("img"), document.createElement("img")];
+    paper.append(...photos);
+    const canvas = document.createElement("canvas");
+    const record = vi.fn(async (plan: PaperBundlePlan) => {
+      expect(plan.paper).toBe(canvas);
+      expect(plan.clip?.source).toBe(clip);
+      expect(plan.durationMs).toBe(4000);
+      expect(plan.clip?.useClipAudio).toBe(true);
+      return new Blob(["video"], { type: "video/mp4" });
+    });
+    const file = await buildKeepVideo({ ...letter,
+      media: { kind: "mixed", photoUrls: ["/p0", "/p1"], clipUrl: "/clip" },
+    }, paper, { snapshot: async (element) => {
+      expect(Array.from(element.querySelectorAll("img"))).toEqual(photos);
+      return canvas;
+    }, record, toJpeg: async () => new Blob(["image"], { type: "image/jpeg" }) });
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(file.type).toBe("video/mp4");
+  });
   it("returns a jpeg of the letter paper when there is no clip and no voice", async () => {
     const paper = document.createElement("article");
     const canvas = document.createElement("canvas");

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  addParentAudioTrack,
+  prepareSoundtrack,
+  recordPaperCanvas,
+  drawClipCover,
   clipInPaperPlan,
   keepRecorderMime,
   keepShareKind,
@@ -12,6 +14,11 @@ import {
 } from "../../src/media/bundleVideo";
 
 describe("keepShareKind", () => {
+  it("uses video for mixed media without voice", () => {
+    expect(keepShareKind({ media: { kind: "mixed" }, audioUrl: null })).toBe(
+      "video",
+    );
+  });
   it("uses an image when the letter has photos and no voice", () => {
     expect(
       keepShareKind({
@@ -208,77 +215,243 @@ describe("renderPaperBundle", () => {
 
 describe("snapshotToJpeg", () => {
   it("returns a jpeg blob from a paper snapshot", async () => {
-    const jpeg = await snapshotToJpeg({} as HTMLCanvasElement, async () =>
-      new Blob([new Uint8Array(8)], { type: "image/jpeg" }),
+    const jpeg = await snapshotToJpeg(
+      {} as HTMLCanvasElement,
+      async () => new Blob([new Uint8Array(8)], { type: "image/jpeg" }),
     );
     expect(jpeg.size).toBeGreaterThan(0);
     expect(jpeg.type).toMatch(/^image\/jpeg/);
   });
 });
 
-describe("addParentAudioTrack", () => {
+describe("drawClipCover", () => {
+  it("center-crops a wide clip to the tall stamp without stretching", () => {
+    const source = document.createElement("video");
+    Object.defineProperty(source, "videoWidth", { value: 1920 });
+    Object.defineProperty(source, "videoHeight", { value: 1080 });
+    const drawImage = vi.fn();
+    drawClipCover({ drawImage } as unknown as CanvasRenderingContext2D, {
+      source,
+      x: 10,
+      y: 20,
+      width: 200,
+      height: 300,
+      mute: false,
+      useClipAudio: true,
+    });
+    expect(drawImage).toHaveBeenCalledWith(
+      source,
+      600,
+      0,
+      720,
+      1080,
+      10,
+      20,
+      200,
+      300,
+    );
+  });
+});
+
+describe("prepareSoundtrack", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
-
-  function stubAudio(options: {
-    captureStream?: () => MediaStream | undefined;
-    play?: () => Promise<void>;
-  }) {
-    const originalCreate = document.createElement.bind(document);
-    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:audio");
-    vi.spyOn(document, "createElement").mockImplementation(((
-      tagName: string,
-      elementOptions?: string | ElementCreationOptions,
-    ) => {
-      const el = originalCreate(tagName, elementOptions as ElementCreationOptions);
-      if (tagName === "audio") {
-        Object.defineProperty(el, "readyState", {
-          configurable: true,
-          get: () => HTMLMediaElement.HAVE_METADATA,
-        });
-        (el as HTMLAudioElement).play = options.play ?? (() => Promise.resolve());
-        (
-          el as HTMLMediaElement & { captureStream?: () => MediaStream }
-        ).captureStream = options.captureStream as () => MediaStream;
-      }
-      return el;
-    }) as typeof document.createElement);
-  }
-
-  it("throws when parent audio is requested but no track can be captured", async () => {
-    const addTrack = vi.fn();
-    const stream = { addTrack } as unknown as MediaStream;
-    stubAudio({
-      captureStream: () => ({ getAudioTracks: () => [] }) as unknown as MediaStream,
-    });
-
-    await expect(
-      addParentAudioTrack(stream, new Blob([new Uint8Array(8)], { type: "audio/webm" })),
-    ).rejects.toThrow("no_parent_audio");
-    expect(addTrack).not.toHaveBeenCalled();
-  });
-
-  it("attaches a captured track only after metadata and play", async () => {
-    const order: string[] = [];
-    const track = { kind: "audio" } as MediaStreamTrack;
-    const addTrack = vi.fn();
-    const stream = { addTrack } as unknown as MediaStream;
-    stubAudio({
-      play: async () => {
-        order.push("play");
+  it("routes sound via Web Audio before recording and releases all resources", async () => {
+    const track = { stop: vi.fn() };
+    const source = { connect: vi.fn(), disconnect: vi.fn() };
+    const destination = {
+      stream: { getAudioTracks: () => [track] },
+      disconnect: vi.fn(),
+    };
+    const close = vi.fn().mockResolvedValue(undefined);
+    const resume = vi.fn().mockResolvedValue(undefined);
+    const createMediaElementSource = vi.fn(() => source);
+    vi.stubGlobal(
+      "AudioContext",
+      class {
+        createMediaElementSource = createMediaElementSource;
+        createMediaStreamDestination = () => destination;
+        resume = resume;
+        close = close;
       },
-      captureStream: () => {
-        order.push("capture");
-        return { getAudioTracks: () => [track] } as unknown as MediaStream;
-      },
-    });
-
-    await addParentAudioTrack(
-      stream,
-      new Blob([new Uint8Array(8)], { type: "audio/webm" }),
     );
-    expect(order).toEqual(["play", "capture"]);
-    expect(addTrack).toHaveBeenCalledWith(track);
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const stream = { addTrack: vi.fn() } as unknown as MediaStream;
+    const sound = await prepareSoundtrack(stream, "/clip.mp4");
+    expect(stream.addTrack).toHaveBeenCalledWith(track);
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+    await sound.start();
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+    await sound.dispose();
+    expect(track.stop).toHaveBeenCalled();
+    expect(source.disconnect).toHaveBeenCalled();
+    expect(close).toHaveBeenCalled();
+  });
+  it("fails visibly when no audio-preserving API exists", async () => {
+    vi.stubGlobal("AudioContext", undefined);
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const stream = { addTrack: vi.fn() } as unknown as MediaStream;
+    await expect(prepareSoundtrack(stream, "/clip.mp4")).rejects.toThrow(
+      "no_audio_capture",
+    );
+  });
+});
+
+describe("recordPaperCanvas audio lifecycle", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+  it("rejects an early recorder error immediately and cancels frames without stopping an inactive recorder", async () => {
+    const track = { stop: vi.fn() };
+    const stop = vi.fn();
+    const recorders: { state: string; onerror?: () => void }[] = [];
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    Object.defineProperty(HTMLCanvasElement.prototype, "captureStream", {
+      configurable: true,
+      value: () => ({ getTracks: () => [track] }),
+    });
+    vi.stubGlobal(
+      "MediaRecorder",
+      class {
+        static isTypeSupported = () => true;
+        state = "inactive";
+        mimeType = "video/mp4";
+        onerror?: () => void;
+        constructor() {
+          recorders.push(this);
+        }
+        start() {
+          this.state = "recording";
+        }
+        stop = stop;
+      },
+    );
+    vi.stubGlobal("requestAnimationFrame", () => {
+      queueMicrotask(() => {
+        recorders[0].state = "inactive";
+        recorders[0].onerror?.();
+      });
+      return 123;
+    });
+    const cancel = vi.fn();
+    vi.stubGlobal("cancelAnimationFrame", cancel);
+    const outcome = await Promise.race([
+      recordPaperCanvas({
+        paper: document.createElement("canvas"),
+        width: 320,
+        height: 180,
+        durationMs: 30000,
+      }).catch((error: Error) => error.message),
+      new Promise((resolve) => setTimeout(() => resolve("still_running"), 30)),
+    ]);
+    expect(outcome).toBe("recording_failed");
+    expect(cancel).toHaveBeenCalledWith(123);
+    expect(track.stop).toHaveBeenCalled();
+    expect(stop).not.toHaveBeenCalled();
+    delete (
+      HTMLCanvasElement.prototype as HTMLCanvasElement & {
+        captureStream?: unknown;
+      }
+    ).captureStream;
+  });
+  it("records before starting sound, suppresses clip sound for voice, restores the player and stops tracks", async () => {
+    const order: string[] = [];
+    const track = { stop: vi.fn() };
+    const source = { connect: vi.fn(), disconnect: vi.fn() };
+    const destination = {
+      stream: { getAudioTracks: () => [track] },
+      disconnect: vi.fn(),
+    };
+    const close = vi.fn().mockResolvedValue(undefined);
+    const audioElements: HTMLMediaElement[] = [];
+    vi.stubGlobal(
+      "AudioContext",
+      class {
+        createMediaElementSource(element: HTMLMediaElement) {
+          audioElements.push(element);
+          return source;
+        }
+        createMediaStreamDestination() {
+          return destination;
+        }
+        resume = async () => {};
+        close = close;
+      },
+    );
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(
+      async function (this: HTMLMediaElement) {
+        order.push(this.tagName === "AUDIO" ? "sound" : "clip");
+      },
+    );
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const stream = { addTrack: vi.fn(), getTracks: () => [track] };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    Object.defineProperty(HTMLCanvasElement.prototype, "captureStream", {
+      configurable: true,
+      value: () => stream,
+    });
+    vi.stubGlobal(
+      "MediaRecorder",
+      class {
+        static isTypeSupported = () => true;
+        state = "inactive";
+        mimeType = "video/mp4";
+        onstop?: () => void;
+        ondataavailable?: (event: { data: Blob }) => void;
+        start() {
+          this.state = "recording";
+          order.push("record");
+        }
+        stop() {
+          this.state = "inactive";
+          this.ondataavailable?.({ data: new Blob(["clip"]) });
+          this.onstop?.();
+        }
+      },
+    );
+    const clip = document.createElement("video");
+    clip.src = "/original.mp4";
+    clip.currentTime = 1;
+    clip.muted = false;
+    Object.defineProperty(clip, "videoWidth", { value: 320 });
+    Object.defineProperty(clip, "videoHeight", { value: 180 });
+    const voice = new Blob(["voice"], { type: "audio/mp4" });
+    const file = await recordPaperCanvas({
+      paper: document.createElement("canvas"),
+      width: 320,
+      height: 180,
+      durationMs: 0,
+      audio: voice,
+      clip: {
+        source: clip,
+        x: 0,
+        y: 0,
+        width: 320,
+        height: 180,
+        mute: true,
+        useClipAudio: false,
+      },
+    });
+    expect(file.size).toBeGreaterThan(0);
+    expect(order[0]).toBe("record");
+    expect(order).toContain("sound");
+    expect(audioElements).toHaveLength(1);
+    expect(clip.currentTime).toBe(1);
+    expect(clip.muted).toBe(false);
+    expect(close).toHaveBeenCalled();
+    expect(track.stop).toHaveBeenCalled();
+    delete (
+      HTMLCanvasElement.prototype as HTMLCanvasElement & {
+        captureStream?: unknown;
+      }
+    ).captureStream;
   });
 });

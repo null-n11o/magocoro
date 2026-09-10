@@ -4,7 +4,7 @@ import { createLetterApi } from "../../src/api/letters";
 const id = "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 describe("createLetterApi", () => {
-  it("posts photos xor clip and optional audio", async () => {
+  it("posts legacy photos or clip and optional audio", async () => {
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ id }),
@@ -36,6 +36,22 @@ describe("createLetterApi", () => {
     expect(clipForm.get("clip")).toBe(clip);
     expect(clipForm.get("audio")).toBe(voice);
     expect(clipForm.getAll("photos")).toEqual([]);
+  });
+
+  it("serializes mixed media in photo order with exactly one clip", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id }) });
+    const photos = [new File(["a"], "a.jpg"), new File(["b"], "b.jpg")];
+    const clip = new File(["v"], "v.mp4");
+    const audio = new File(["a"], "voice.webm");
+    await createLetterApi(fetchImpl as unknown as typeof fetch).createLetter({
+      addressTo: "ばあばへ", body: "  今日\nたのしかった！  ", signature: "はると",
+      media: { kind: "mixed", photos, clip }, audio,
+    });
+    const form = fetchImpl.mock.calls[0][1].body as FormData;
+    expect(form.getAll("photos")).toEqual(photos);
+    expect(form.getAll("clip")).toEqual([clip]);
+    expect(form.get("audio")).toBe(audio);
+    expect(form.get("body")).toBe("  今日\nたのしかった！  ");
   });
 
   it("maps 404 and 410 on get and stamp", async () => {

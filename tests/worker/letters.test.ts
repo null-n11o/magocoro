@@ -185,14 +185,83 @@ describe("letters api", () => {
     expect(await audioRes.json()).toEqual({ error: "not_found" });
   });
 
-  it("rejects photos and clip together, and rejects neither", async () => {
-    const both = textForm();
-    both.append("photos", photo("image/jpeg", 8, "a.jpg"));
-    both.set("clip", clip());
-    expect((await post(both)).status).toBe(400);
+  it("creates mixed media preserving ordered bytes and original text, then expires every asset", async () => {
+    const form = textForm();
+    const body = "  今日\nたのしかった！  ";
+    form.set("body", body);
+    form.append("photos", new File(["first"], "a.jpg", { type: "image/jpeg" }));
+    form.append("photos", new File(["second"], "b.png", { type: "image/png" }));
+    form.set("clip", clip());
+    form.set("audio", audio());
+    const created = await post(form);
+    expect(created.status).toBe(201);
+    const { id } = await created.json() as { id: string };
+    const get = (suffix = "") => exports.default.fetch(new Request(`http://example.com/api/letters/${id}${suffix}`));
+    const value = await (await get()).json() as { body: string; media: unknown };
+    expect(value.body).toBe(body);
+    expect(value.media).toEqual({ kind: "mixed", photoUrls: [`/api/letters/${id}/photos/0`, `/api/letters/${id}/photos/1`], clipUrl: `/api/letters/${id}/clip` });
+    expect(new TextDecoder().decode(await (await get("/photos/0")).arrayBuffer())).toBe("first");
+    expect(new TextDecoder().decode(await (await get("/photos/1")).arrayBuffer())).toBe("second");
+    expect((await get("/clip")).status).toBe(200);
+    expect((await get("/audio")).status).toBe(200);
+    expect((await get("/photos/2")).status).toBe(404);
+    const key = `letters/${id}.json`;
+    const stored = JSON.parse(await (await env.LETTERS.get(key))!.text());
+    stored.expiresAt = "2020-01-01T00:00:00.000Z";
+    await env.LETTERS.put(key, JSON.stringify(stored));
+    for (const suffix of ["", "/photos/0", "/photos/1", "/clip", "/audio"]) {
+      expect((await get(suffix)).status).toBe(410);
+    }
+  });
 
-    const neither = textForm();
-    expect((await post(neither)).status).toBe(400);
+  it("rejects no media and more than three combined items", async () => {
+    expect((await post(textForm())).status).toBe(400);
+    const form = textForm();
+    for (let n = 0; n < 3; n++) form.append("photos", photo("image/jpeg", 8, `${n}.jpg`));
+    form.append("clip", clip());
+    expect((await post(form)).status).toBe(400);
+  });
+
+  it.each(["photos", "clip", "audio"])("rejects malformed %s entries even beside valid media", async (field) => {
+    for (const invalid of ["not-a-file", new File([], "empty")]) {
+      const form = textForm();
+      form.append("photos", photo("image/jpeg", 8, "a.jpg"));
+      form.append(field, invalid);
+      expect((await post(form)).status).toBe(400);
+    }
+  });
+
+  it.each(["clip", "audio"])("rejects repeated %s fields instead of silently dropping them", async (field) => {
+    const form = textForm();
+    if (field === "audio") form.append("photos", photo("image/jpeg", 8, "a.jpg"));
+    for (let n = 0; n < 2; n++) form.append(field, field === "clip" ? clip() : audio());
+    expect((await post(form)).status).toBe(400);
+  });
+
+  it("enforces the combined byte cap including photos, clip and voice", async () => {
+    const form = textForm();
+    form.append("photos", photo("image/jpeg", 1024 * 1024, "a.jpg"));
+    form.set("clip", clip("video/mp4", 9 * 1024 * 1024));
+    expect((await post(form)).status).toBe(201);
+    form.set("audio", audio("audio/webm", 1));
+    expect((await post(form)).status).toBe(400);
+  });
+
+  it.each(["/clip", ".json"])("cleans up all attempted mixed uploads when %s fails", async (failure) => {
+    const attempted: string[] = [];
+    const deleted: string[] = [];
+    const bucket = {
+      async put(key: string) { attempted.push(key); if (key.endsWith(failure)) throw new Error("unavailable"); },
+      async delete(key: string) { deleted.push(key); },
+    } as unknown as R2Bucket;
+    const form = textForm();
+    form.append("photos", photo("image/jpeg", 8, "a.jpg"));
+    form.append("photos", photo("image/png", 8, "b.png"));
+    form.set("clip", clip());
+    form.set("audio", audio());
+    expect(await createLetter({ LETTERS: bucket }, form)).toEqual({ ok: false, status: 503 });
+    expect(attempted).toHaveLength(failure === "/clip" ? 3 : 5);
+    expect(deleted).toEqual(attempted);
   });
 
   it("uses default addressTo when empty", async () => {

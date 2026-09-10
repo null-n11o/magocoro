@@ -42,28 +42,21 @@ function renderCompose(api: LetterApi) {
 }
 
 describe("ComposePage", () => {
-  it("frames composing as stationery steps without grandchild-tone coaching", () => {
-    const api: LetterApi = { createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() };
-    const { container } = renderCompose(api);
-    expect(screen.getByRole("heading", { name: "こんなことがあったよ" })).toBeInTheDocument();
-    expect(
-      screen.getByText("写真または短い動画と、ことばと声を1通にまとめる、Webのお手紙です。"),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("孫の口調で書いてください")).not.toBeInTheDocument();
-    expect(screen.getByPlaceholderText("今週のできごとを、短くでよいので書いてください")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "写真" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "動画" })).toHaveAttribute("aria-pressed", "false");
-    expect(container.querySelector(".compose-seal")).not.toBeInTheDocument();
+  it("shows an editorial composer and an empty live preview", () => {
+    renderCompose({ createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() });
+    expect(screen.getByRole("heading", { name: /なんでもない今日を/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("お手紙のプレビュー")).toBeInTheDocument();
+    expect(screen.getByLabelText("本文")).toHaveValue("");
   });
 
   it("keeps submit disabled without media, body, or signature", async () => {
     const api: LetterApi = { createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() };
     renderCompose(api);
     expect(screen.getByRole("button", { name: "お手紙をつくる" })).toBeDisabled();
-    expect(screen.getByText("写真を1枚以上えらんでください")).toBeInTheDocument();
+    expect(screen.getByText("写真か動画をえらんでください")).toBeInTheDocument();
   });
 
-  it("clears photos when switching to video", async () => {
+  it("retains photos and sends the exact mixed request", async () => {
     const user = userEvent.setup();
     const api: LetterApi = {
       createLetter: vi.fn().mockResolvedValue({ id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }),
@@ -72,8 +65,7 @@ describe("ComposePage", () => {
     };
     renderCompose(api);
     await user.upload(screen.getByLabelText("写真"), jpeg());
-    await user.click(screen.getByRole("button", { name: "動画" }));
-    expect(screen.queryByRole("img", { name: "選んだ写真 1" })).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "選んだ写真 1" })).toBeInTheDocument();
     await user.upload(
       screen.getByLabelText("動画"),
       new File([new Uint8Array(8)], "a.mp4", { type: "video/mp4" }),
@@ -83,7 +75,7 @@ describe("ComposePage", () => {
     await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
     expect(api.createLetter).toHaveBeenCalledWith(
       expect.objectContaining({
-        media: expect.objectContaining({ kind: "clip" }),
+        media: { kind: "mixed", photos: [expect.any(File)], clip: expect.any(File) },
       }),
     );
   });
@@ -94,7 +86,6 @@ describe("ComposePage", () => {
     const api: LetterApi = { createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() };
     renderCompose(api);
     await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
-    await user.click(screen.getByRole("button", { name: "動画" }));
     await user.upload(
       screen.getByLabelText("動画"),
       new File([new Uint8Array(8)], "a.mp4", { type: "video/mp4" }),
@@ -103,29 +94,37 @@ describe("ComposePage", () => {
     expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
   });
 
-  it("ignores a late clip failure after switching to photos", async () => {
+  it("locks media and creation while preparing, retaining a valid clip on replacement failure", async () => {
     const user = userEvent.setup();
-    let finishPrepare!: (result: { ok: false; reason: "too_long" }) => void;
-    vi.mocked(prepareClip).mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          finishPrepare = resolve;
-        }),
-    );
-    const api: LetterApi = { createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() };
-    renderCompose(api);
-    await user.click(screen.getByRole("button", { name: "動画" }));
-    await user.upload(
-      screen.getByLabelText("動画"),
-      new File([new Uint8Array(8)], "a.mp4", { type: "video/mp4" }),
-    );
-    await user.click(screen.getByRole("button", { name: "写真" }));
-    await act(async () => {
-      finishPrepare({ ok: false, reason: "too_long" });
-    });
-    expect(screen.getByRole("button", { name: "写真" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.queryByText("30秒以内にしてください")).not.toBeInTheDocument();
-    expect(screen.queryByText("この動画は使えません")).not.toBeInTheDocument();
+    renderCompose({ createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() });
+    const clip = new File(["clip"], "a.mp4", { type: "video/mp4" });
+    await user.upload(screen.getByLabelText("動画"), clip);
+    await user.type(screen.getByLabelText("本文"), "漢字もそのまま\nだよ");
+    await user.type(screen.getByLabelText("署名"), "はると");
+    let finish!: (value: {ok:false;reason:"too_long"}) => void;
+    vi.mocked(prepareClip).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    await user.upload(screen.getByLabelText("動画"), clip);
+    expect(screen.getByRole("button", {name:"お手紙をつくる"})).toBeDisabled();
+    expect(screen.getByLabelText("写真")).toBeDisabled();
+    await act(async () => finish({ok:false,reason:"too_long"}));
+    expect(await screen.findByLabelText("手紙の動画")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name:"お手紙をつくる"})).toBeEnabled();
+  });
+
+  it.each([true, false])("caps combined media in either order and removal restores capacity (%s)", async (clipFirst) => {
+    const user = userEvent.setup();
+    renderCompose({ createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() });
+    const clip = new File(["clip"], "a.mp4", { type: "video/mp4" });
+    if (clipFirst) await user.upload(screen.getByLabelText("動画"), clip);
+    await user.upload(screen.getByLabelText("写真"), [jpeg("a.jpg"),jpeg("b.jpg"),jpeg("c.jpg")]);
+    if (!clipFirst) await user.upload(screen.getByLabelText("動画"), clip);
+    expect(screen.getByText("写真と動画はあわせて3つまでです")).toBeInTheDocument();
+    expect(screen.getAllByAltText(/選んだ写真/)).toHaveLength(clipFirst ? 2 : 3);
+    await user.click(screen.getByRole("button", {name:"写真1を削除"}));
+    if (clipFirst) await user.upload(screen.getByLabelText("写真"), jpeg("d.jpg"));
+    else await user.upload(screen.getByLabelText("動画"), clip);
+    expect(await screen.findByLabelText("手紙の動画")).toBeInTheDocument();
+    expect(screen.getAllByAltText(/選んだ写真/)).toHaveLength(2);
   });
 
   it("creates a photo letter without audio", async () => {
