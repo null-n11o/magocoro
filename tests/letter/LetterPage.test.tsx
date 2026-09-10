@@ -5,6 +5,17 @@ import { describe, expect, it, vi } from "vitest";
 import type { LetterApi, LetterPublic } from "../../src/api/types";
 import { LetterPage } from "../../src/letter/LetterPage";
 
+vi.mock("../../src/letter/buildKeepVideo", () => ({
+  buildKeepVideo: vi.fn(
+    async () =>
+      new File([new Uint8Array(8)], "magocoro.webm", { type: "video/webm" }),
+  ),
+}));
+vi.mock("../../src/media/shareBundle", () => ({
+  shareOrSaveVideo: vi.fn().mockResolvedValue("shared"),
+  downloadFile: vi.fn(),
+}));
+
 const letter: LetterPublic = {
   id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   createdAt: "2026-09-08T12:00:00.000Z",
@@ -226,5 +237,38 @@ describe("LetterPage", () => {
       await screen.findByText("コピーできませんでした。下のURLを長押ししてコピーしてください"),
     ).toBeInTheDocument();
     expect(screen.getByText(window.location.href)).toBeInTheDocument();
+  });
+
+  it("offers a keep-video share without removing URL copy", async () => {
+    const user = userEvent.setup();
+    renderLetter(apiWithLetter());
+    await screen.findByText("じいじ、ばあばへ");
+    await user.click(screen.getByRole("button", { name: "動画にして送る" }));
+    expect(await screen.findByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
+  });
+
+  it("keeps URL copy when bundling fails", async () => {
+    const user = userEvent.setup();
+    const { buildKeepVideo } = await import("../../src/letter/buildKeepVideo");
+    vi.mocked(buildKeepVideo).mockRejectedValueOnce(new Error("fail"));
+    renderLetter(apiWithLetter());
+    await screen.findByText("じいじ、ばあばへ");
+    await user.click(screen.getByRole("button", { name: "動画にして送る" }));
+    expect(
+      await screen.findByText("動画にできませんでした。リンクを送ってください"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
+  });
+
+  it("explains LINE upload when the file is saved locally", async () => {
+    const user = userEvent.setup();
+    const { shareOrSaveVideo } = await import("../../src/media/shareBundle");
+    vi.mocked(shareOrSaveVideo).mockResolvedValueOnce("saved");
+    renderLetter(apiWithLetter());
+    await screen.findByText("じいじ、ばあばへ");
+    await user.click(screen.getByRole("button", { name: "動画にして送る" }));
+    expect(
+      await screen.findByText("LINEのトークに、この動画を送ってください"),
+    ).toBeInTheDocument();
   });
 });

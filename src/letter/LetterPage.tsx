@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { LetterApi, LetterPublic, StampKind } from "../api/types";
 import botanicalSprig from "../assets/botanical-sprig.png";
+import { buildKeepVideo } from "./buildKeepVideo";
+import { downloadFile, shareOrSaveVideo } from "../media/shareBundle";
 
 type View =
   | { status: "loading" }
@@ -28,6 +30,9 @@ export function LetterPage({ api }: { api: LetterApi }) {
   const [copyFailed, setCopyFailed] = useState(false);
   const [stampError, setStampError] = useState(false);
   const [pressed, setPressed] = useState({ read: false, cute: false });
+  const [bundling, setBundling] = useState(false);
+  const [bundleFailed, setBundleFailed] = useState(false);
+  const [bundleSaved, setBundleSaved] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +122,27 @@ export function LetterPage({ api }: { api: LetterApi }) {
 
   const { letter } = view;
 
+  async function onBundle() {
+    if (!letter || bundling) return;
+    setBundling(true);
+    setBundleFailed(false);
+    setBundleSaved(false);
+    try {
+      const file = await buildKeepVideo(letter);
+      const result = await shareOrSaveVideo(file, {
+        canShare: (data) =>
+          typeof navigator.canShare === "function" && navigator.canShare(data),
+        share: (data) => navigator.share(data),
+        save: downloadFile,
+      });
+      if (result === "saved") setBundleSaved(true);
+    } catch {
+      setBundleFailed(true);
+    } finally {
+      setBundling(false);
+    }
+  }
+
   return (
     <main className="page-shell letter-shell">
       <img src={botanicalSprig} alt="" aria-hidden="true" className="botanical botanical-top" />
@@ -179,8 +205,16 @@ export function LetterPage({ api }: { api: LetterApi }) {
           <p className="share-note">
             このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます
           </p>
-          <button type="button" onClick={onCopy} className="secondary-button">
+          <button type="button" className="secondary-button" onClick={() => void onCopy()}>
             リンクをコピー
+          </button>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => void onBundle()}
+            disabled={bundling}
+          >
+            {bundling ? "動画をつくっています…" : "動画にして送る"}
           </button>
           {copied ? <p className="feedback-copy">コピーしました</p> : null}
           {copyFailed ? (
@@ -189,6 +223,8 @@ export function LetterPage({ api }: { api: LetterApi }) {
               <p className="copy-url">{window.location.href}</p>
             </div>
           ) : null}
+          {bundleSaved ? <p className="feedback-copy">LINEのトークに、この動画を送ってください</p> : null}
+          {bundleFailed ? <p className="form-error">動画にできませんでした。リンクを送ってください</p> : null}
         </section>
 
         <section className="reply-section" aria-labelledby="reply-heading">
