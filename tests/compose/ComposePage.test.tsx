@@ -27,23 +27,28 @@ function renderCompose(api: LetterApi) {
 }
 
 describe("ComposePage", () => {
-  it("frames the form as a family album letter", () => {
+  it("frames composing as four stationery steps without an empty postmark", () => {
     const api: LetterApi = {
       createLetter: vi.fn(),
       getLetter: vi.fn(),
       addStamp: vi.fn(),
     };
-    renderCompose(api);
+    const { container } = renderCompose(api);
 
     expect(
-      screen.getByRole("heading", {
-        name: "こんなことがあったよ",
-      }),
+      screen.getByRole("heading", { name: "こんなことがあったよ" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("写真といっしょに、ことばでつながる、Webのお手紙です。"))
+      .toBeInTheDocument();
     expect(screen.getByRole("banner", { name: "便箋のヘッダー" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "写真を飾る" })).toBeInTheDocument();
     expect(screen.getByText("写真は1〜3枚まで。1枚10MBまで")).toBeInTheDocument();
-    expect(screen.getByText("つながる、家族のアルバム")).toBeInTheDocument();
+
+    expect(
+      Array.from(container.querySelectorAll(".step-index"), (node) => node.textContent),
+    ).toEqual(["1", "2", "3", "4"]);
+    expect(container.querySelectorAll(".photo-slot")).toHaveLength(3);
+    expect(container.querySelector(".compose-seal")).not.toBeInTheDocument();
   });
 
   it("keeps submit disabled without photo, body, or signature", async () => {

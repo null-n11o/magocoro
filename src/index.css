@@ -125,61 +125,72 @@ button {
 
 .compose-header {
   position: relative;
-  padding-top: 1.25rem;
-}
-
-.compose-seal {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.25rem;
-  width: 3.55rem;
-  height: 3.55rem;
-  border: 1px solid var(--color-accent);
-  border-radius: 50%;
-  opacity: 0.72;
-  transform: rotate(-10deg);
-}
-
-.compose-seal::before,
-.compose-seal::after {
-  position: absolute;
-  content: "";
-  border: 1px solid var(--color-accent);
-  border-radius: 50%;
-}
-
-.compose-seal::before {
-  inset: 0.2rem;
-}
-
-.compose-seal::after {
-  top: -0.45rem;
-  right: -2.8rem;
-  width: 2.7rem;
-  height: 0.65rem;
-  border-width: 1px 0;
-  border-radius: 50%;
-  box-shadow: 0 0.35rem 0 var(--color-accent), 0 0.7rem 0 var(--color-accent);
+  padding-top: 1rem;
 }
 
 .compose-title {
-  max-width: 100%;
-  margin: 2.75rem 0 0;
-  font-size: clamp(1.9rem, 7vw, 2.7rem);
+  margin: 2.5rem 0 0;
+  font-size: clamp(2rem, 8vw, 3rem);
   font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1.35;
-  text-wrap: balance;
+  letter-spacing: -0.045em;
+  line-height: 1.3;
 }
 
-.compose-lede {
-  margin: 1rem 0 0;
+.compose-title::after {
+  display: block;
+  width: 2.5rem;
+  margin-top: 0.75rem;
+  border-top: 2px solid var(--color-accent);
+  content: "";
+}
+
+.compose-intro {
+  max-width: 24rem;
+  margin: 1.2rem 0 0;
   color: var(--color-muted);
   font-size: 0.95rem;
+  line-height: 1.8;
 }
 
 .letter-form {
-  margin-top: 2.75rem;
+  margin-top: 2rem;
+}
+
+.compose-step {
+  padding: 1.5rem 0;
+  border-top: 1px solid var(--color-line);
+}
+
+.compose-step:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.field-group + .field-group {
+  margin-top: 0;
+}
+
+.step-heading-row {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.step-heading-copy {
+  min-width: 0;
+}
+
+.step-index {
+  display: grid;
+  width: 2.25rem;
+  min-height: 2.25rem;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(196 84 58 / 0.12);
+  color: var(--color-accent);
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .section-heading-row,
@@ -228,35 +239,53 @@ button {
   letter-spacing: 0.08em;
 }
 
+.photo-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.photo-slot {
+  min-width: 0;
+  aspect-ratio: 0.92;
+  border: 0.35rem solid #fff;
+  background: rgb(255 253 248 / 0.72);
+  box-shadow: 0 0 0 1px var(--color-line), 0 0.35rem 0.9rem rgb(51 48 42 / 0.07);
+}
+
 .photo-picker {
   display: flex;
-  min-height: 7.5rem;
-  margin-top: 0;
+  min-height: 0;
+  margin: 0;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 1px dashed var(--color-line);
-  background: rgb(255 253 248 / 0.58);
+  border-style: solid;
   color: var(--color-muted);
   text-align: center;
-  transition: border-color 200ms ease, color 200ms ease, background-color 200ms ease;
 }
 
-.photo-picker:hover,
-.photo-picker:focus-within {
-  border-color: var(--color-accent);
-  background: rgb(255 253 248 / 0.7);
-  color: var(--color-accent);
+.photo-picker-mark {
+  display: grid;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+  border: 1px solid var(--color-muted);
+  border-radius: 50%;
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
 .photo-picker-title {
-  font-size: 1.05rem;
+  margin-top: 0.45rem;
+  font-size: clamp(0.72rem, 2.8vw, 0.95rem);
   font-weight: 700;
 }
 
-.photo-picker-detail {
-  margin-top: 0.2rem;
-  font-size: 0.75rem;
+.photo-slot-empty {
+  display: block;
+  opacity: 0.58;
 }
 
 .file-input {
@@ -275,29 +304,17 @@ button {
   outline-offset: 3px;
 }
 
-.photo-grid,
 .letter-photo-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.65rem;
 }
 
-.photo-mat,
 .letter-photo-mat {
   margin-top: 1rem;
   padding: 0.75rem;
   background: rgb(255 255 255 / 0.82);
   box-shadow: 0 0.35rem 1.2rem rgb(51 48 42 / 0.08);
-}
-
-.photo-mat.has-photos .photo-picker {
-  min-height: 3.5rem;
-  margin-top: 0.75rem;
-  background: var(--color-page);
-}
-
-.photo-grid {
-  margin-top: 0;
 }
 
 .photo-card {
@@ -317,10 +334,11 @@ button {
 .photo-preview {
   display: block;
   width: 100%;
-  aspect-ratio: 1;
+  height: 100%;
+  aspect-ratio: auto;
   object-fit: cover;
-  border: 0.35rem solid #fff;
-  box-shadow: 0 0 0 1px var(--color-line);
+  border: 0;
+  box-shadow: none;
 }
 
 .photo-actions {
@@ -366,37 +384,12 @@ button {
   line-height: 1;
 }
 
-.photo-grid.photo-count-1,
 .letter-photo-grid.photo-count-1 {
   grid-template-columns: 1fr;
 }
 
-.photo-grid.photo-count-2,
 .letter-photo-grid.photo-count-2 {
   grid-template-columns: repeat(2, 1fr);
-}
-
-.photo-grid.photo-count-3 {
-  grid-template-columns: 1.45fr 1fr;
-  grid-template-rows: repeat(2, minmax(5.5rem, 1fr));
-}
-
-.photo-grid.photo-count-3 .photo-card:first-child {
-  grid-row: span 2;
-}
-
-.photo-grid.photo-count-3 .photo-card:first-child .photo-preview {
-  aspect-ratio: 0.82;
-}
-
-.album-divider {
-  margin: 2.25rem 0;
-  border: 0;
-  border-top: 1px solid var(--color-line);
-}
-
-.field-group + .field-group {
-  margin-top: 1.5rem;
 }
 
 .field-input {
@@ -432,6 +425,11 @@ button {
   margin-top: 0.2rem;
 }
 
+.step-heading-row + .field-input {
+  width: calc(100% - 3.25rem);
+  margin-left: 3.25rem;
+}
+
 .required-label::after {
   content: " *";
   color: var(--color-accent);
@@ -462,25 +460,14 @@ button {
   width: 100%;
   position: relative;
   min-height: 4rem;
-  margin-top: 1.75rem;
+  margin-top: 0.75rem;
   border: 0;
-  border-radius: 1rem;
+  border-radius: 0.55rem;
   background: var(--color-accent);
   color: var(--color-surface);
   font-weight: 700;
   letter-spacing: 0.08em;
-  box-shadow: 0 0.35rem 0.8rem rgb(196 84 58 / 0.16);
-}
-
-.primary-button::after {
-  position: absolute;
-  top: 50%;
-  right: 1.2rem;
-  content: "›";
-  font-size: 2rem;
-  font-weight: 400;
-  line-height: 1;
-  transform: translateY(-53%);
+  box-shadow: 0 0.35rem 0.8rem rgb(196 84 58 / 0.12);
 }
 
 .primary-button:hover:not(:disabled),
@@ -502,14 +489,6 @@ button {
 .photo-picker:focus-visible {
   outline: 3px solid rgb(196 84 58 / 0.35);
   outline-offset: 3px;
-}
-
-.album-footer {
-  margin: 2.5rem 0 0;
-  color: var(--color-muted);
-  font-size: 0.9rem;
-  letter-spacing: 0.08em;
-  text-align: center;
 }
 
 .letter-header {
@@ -732,5 +711,20 @@ button {
   .letter-paper,
   .empty-paper {
     padding: 1.75rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .photo-slot-grid {
+    gap: 0.45rem;
+  }
+
+  .photo-slot {
+    border-width: 0.25rem;
+  }
+
+  .photo-picker-mark {
+    width: 2.5rem;
+    min-height: 2.5rem;
   }
 }
