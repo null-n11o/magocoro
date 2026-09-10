@@ -96,6 +96,38 @@ describe("ComposePage", () => {
     expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
   });
 
+  it("shows a busy label while the letter is being created", async () => {
+    const user = userEvent.setup();
+    let resolveCreate!: (value: { id: string }) => void;
+    const createLetter = vi.fn(
+      () =>
+        new Promise<{ id: string }>((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
+    const api: LetterApi = {
+      createLetter,
+      getLetter: vi.fn(),
+      addStamp: vi.fn(),
+    };
+    renderCompose(api);
+
+    await user.upload(screen.getByLabelText("写真"), jpeg());
+    await user.type(screen.getByLabelText("本文"), "きょうね、たてたよ");
+    await user.type(screen.getByLabelText("署名"), "はると");
+    await user.click(screen.getByRole("button", { name: "お手紙をつくる" }));
+
+    const busyButton = screen.getByRole("button", {
+      name: "お手紙をつくっています…",
+    });
+    expect(busyButton).toBeDisabled();
+    expect(busyButton).toHaveAttribute("aria-busy", "true");
+    expect(createLetter).toHaveBeenCalledTimes(1);
+
+    resolveCreate({ id: "l_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" });
+    expect(await screen.findByText("手紙ページ 送り側")).toBeInTheDocument();
+  });
+
   it("rejects unsupported photo types without losing other inputs", async () => {
     const user = userEvent.setup({ applyAccept: false });
     const api: LetterApi = {

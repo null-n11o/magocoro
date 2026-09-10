@@ -170,7 +170,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
         </header>
 
         <form onSubmit={onSubmit} className="letter-form">
-          <section className="album-section compose-step">
+          <section className="album-section compose-step step-one">
             <div className="step-heading-row">
               <span className="step-index" aria-hidden="true">
                 1
@@ -255,7 +255,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
             {photoError ? <p className="form-error">{photoError}</p> : null}
           </section>
 
-          <section className="field-group compose-step">
+          <section className="field-group compose-step step-two">
             <div className="step-heading-row">
               <span className="step-index" aria-hidden="true">
                 2
@@ -272,7 +272,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
             />
           </section>
 
-          <section className="field-group compose-step">
+          <section className="field-group compose-step step-three">
             <div className="step-heading-row">
               <span className="step-index" aria-hidden="true">
                 3
@@ -297,7 +297,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
             />
           </section>
 
-          <section className="field-group compose-step">
+          <section className="field-group compose-step step-four">
             <div className="step-heading-row">
               <span className="step-index" aria-hidden="true">
                 4
@@ -318,8 +318,13 @@ export function ComposePage({ api }: { api: LetterApi }) {
 
           {reason ? <p className="form-hint">{reason}</p> : null}
           {saveError ? <p className="form-error">{saveError}</p> : null}
-          <button type="submit" disabled={Boolean(reason) || submitting} className="primary-button">
-            お手紙をつくる
+          <button
+            type="submit"
+            disabled={Boolean(reason) || submitting}
+            aria-busy={submitting}
+            className="primary-button"
+          >
+            {submitting ? "お手紙をつくっています…" : "お手紙をつくる"}
           </button>
         </form>
       </div>

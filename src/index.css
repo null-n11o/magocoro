@@ -51,9 +51,48 @@ button {
   *,
   *::before,
   *::after {
+    animation-delay: 0s !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    transition-delay: 0s !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes compose-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes photo-place {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -126,6 +165,7 @@ button {
 .compose-header {
   position: relative;
   padding-top: 1rem;
+  animation: compose-reveal 220ms ease-out both;
 }
 
 .compose-title {
@@ -159,6 +199,7 @@ button {
 .compose-step {
   padding: 1.5rem 0;
   border-top: 1px solid var(--color-line);
+  animation: compose-reveal 240ms ease-out both;
 }
 
 .compose-step:first-child {
@@ -191,6 +232,36 @@ button {
   color: var(--color-accent);
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.step-one {
+  animation-delay: 0ms;
+}
+
+.step-two {
+  animation-delay: 40ms;
+}
+
+.step-three {
+  animation-delay: 80ms;
+}
+
+.step-four {
+  animation-delay: 120ms;
+}
+
+.compose-step .step-index {
+  transition: background-color 200ms ease, color 200ms ease, transform 200ms ease;
+}
+
+.compose-step:focus-within .step-index {
+  background: var(--color-accent);
+  color: var(--color-surface);
+  transform: scale(1.04);
+}
+
+.compose-step:focus-within {
+  border-top-color: rgb(196 84 58 / 0.42);
 }
 
 .section-heading-row,
@@ -252,6 +323,7 @@ button {
   border: 0.35rem solid #fff;
   background: rgb(255 253 248 / 0.72);
   box-shadow: 0 0 0 1px var(--color-line), 0 0.35rem 0.9rem rgb(51 48 42 / 0.07);
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
 }
 
 .photo-picker {
@@ -320,6 +392,7 @@ button {
 .photo-card {
   position: relative;
   min-width: 0;
+  animation: photo-place 260ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 }
 
 .photo-card.is-dragging {
@@ -439,6 +512,7 @@ button {
 .form-hint,
 .form-error {
   margin: 1rem 0 0;
+  animation: feedback-in 180ms ease-out both;
 }
 
 .form-error {
@@ -470,10 +544,13 @@ button {
   box-shadow: 0 0.35rem 0.8rem rgb(196 84 58 / 0.12);
 }
 
-.primary-button:hover:not(:disabled),
 .secondary-button:hover,
 .stamp-button:hover {
   transform: translateY(-1px);
+}
+
+.primary-button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.995);
 }
 
 .primary-button:disabled {
@@ -481,14 +558,35 @@ button {
   opacity: 0.45;
 }
 
+.primary-button:disabled[aria-busy="true"] {
+  cursor: wait;
+}
+
 .primary-button:focus-visible,
 .secondary-button:focus-visible,
 .stamp-button:focus-visible,
 .photo-action:focus-visible,
 .text-link:focus-visible,
-.photo-picker:focus-visible {
+.photo-picker:focus-visible,
+.album-section:has(.file-input:focus-visible) .photo-picker {
   outline: 3px solid rgb(196 84 58 / 0.35);
   outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .photo-picker:hover,
+  .photo-card:hover {
+    border-color: rgb(196 84 58 / 0.55);
+    box-shadow: 0 0 0 1px rgb(196 84 58 / 0.35),
+      0 0.55rem 1.1rem rgb(51 48 42 / 0.11);
+    transform: translateY(-2px);
+  }
+}
+
+.photo-picker:focus-visible,
+.album-section:has(.file-input:focus-visible) .photo-picker,
+.photo-action:focus-visible {
+  border-color: var(--color-accent);
 }
 
 .letter-header {
