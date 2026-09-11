@@ -57,10 +57,14 @@ function renderLetter(
   );
 }
 
+function renderSender(api: LetterApi, id = letter.id) {
+  return renderLetter(api, id, { fromCompose: true });
+}
+
 describe("LetterPage", () => {
   it("renders mixed media and preserves the original body in the exported paper", async () => {
     const mixed: LetterPublic = {...letter, body:"今日は公園へ。\nたのしかった！", media:{kind:"mixed",clipUrl:"/clip",photoUrls:["/one","/two"]}};
-    renderLetter(apiWithLetter({getLetter:vi.fn().mockResolvedValue({status:"ok",letter:mixed})}));
+    renderSender(apiWithLetter({getLetter:vi.fn().mockResolvedValue({status:"ok",letter:mixed})}));
     await screen.findByLabelText("手紙の動画");
     expect(screen.getAllByAltText(/手紙の写真/)).toHaveLength(2);
     const paper = screen.getByRole("article", {name:"お手紙"});
@@ -82,7 +86,7 @@ describe("LetterPage", () => {
   });
 
   it("presents the shared letter as a family photo letter", async () => {
-    renderLetter(apiWithLetter());
+    renderSender(apiWithLetter());
 
     await screen.findByText("お孫さんからのお手紙です");
     expect(
@@ -117,7 +121,7 @@ describe("LetterPage", () => {
   });
 
   it("shows the copy note with the 90-day closing line", async () => {
-    renderLetter(apiWithLetter());
+    renderSender(apiWithLetter());
     expect(
       await screen.findByText(
         "このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます",
@@ -131,7 +135,7 @@ describe("LetterPage", () => {
     const api = apiWithLetter({
       addStamp: vi.fn().mockResolvedValue({ status: "ok", stamps: { read: 1, cute: 2 } }),
     });
-    renderLetter(api);
+    renderSender(api);
     expect(await screen.findByText("じいじ、ばあばへ")).toBeInTheDocument();
     expect(screen.getByText("きょうね、たてたよ")).toBeInTheDocument();
     expect(screen.getByText("はると")).toBeInTheDocument();
@@ -230,6 +234,20 @@ describe("LetterPage", () => {
     expect(screen.queryByText("きょうね、たてたよ")).not.toBeInTheDocument();
   });
 
+  it("shows the share UI only right after creating a letter", async () => {
+    renderLetter(apiWithLetter(), letter.id, { fromCompose: true });
+    expect(await screen.findByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
+  });
+
+  it("hides the share UI from recipients but keeps the reply UI", async () => {
+    renderLetter(apiWithLetter());
+    await screen.findByText("お孫さんからのお手紙です");
+    expect(screen.queryByRole("button", { name: "リンクをコピー" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "画像にして送る" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "動画にして送る" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "よんだよ" })).toBeInTheDocument();
+  });
+
   it("shows the share UI after creating a letter", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
@@ -237,7 +255,7 @@ describe("LetterPage", () => {
       value: { writeText },
       configurable: true,
     });
-    renderLetter(apiWithLetter());
+    renderSender(apiWithLetter());
     await screen.findByText("じいじ、ばあばへ");
     expect(
       screen.getByText("このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます"),
@@ -253,7 +271,7 @@ describe("LetterPage", () => {
       value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
       configurable: true,
     });
-    renderLetter(apiWithLetter());
+    renderSender(apiWithLetter());
     await screen.findByText("じいじ、ばあばへ");
     await user.click(screen.getByRole("button", { name: "リンクをコピー" }));
     expect(
@@ -265,7 +283,7 @@ describe("LetterPage", () => {
   it("offers an image share for a photo letter without voice", async () => {
     const user = userEvent.setup();
     const { buildKeepVideo } = await import("../../src/letter/buildKeepVideo");
-    renderLetter(apiWithLetter());
+    renderSender(apiWithLetter());
     await screen.findByText("じいじ、ばあばへ");
     const paper = screen.getByRole("article", { name: "お手紙" });
     await user.click(screen.getByRole("button", { name: "画像にして送る" }));
@@ -279,7 +297,7 @@ describe("LetterPage", () => {
       ...letter,
       media: { kind: "clip", clipUrl: `/api/letters/${letter.id}/clip` },
     };
-    renderLetter(
+    renderSender(
       apiWithLetter({
         getLetter: vi.fn().mockResolvedValue({ status: "ok", letter: clipLetter }),
       }),
@@ -293,7 +311,7 @@ describe("LetterPage", () => {
     const user = userEvent.setup();
     const { buildKeepVideo } = await import("../../src/letter/buildKeepVideo");
     vi.mocked(buildKeepVideo).mockRejectedValueOnce(new Error("fail"));
-    renderLetter(apiWithLetter());
+    renderSender(apiWithLetter());
     await screen.findByText("じいじ、ばあばへ");
     await user.click(screen.getByRole("button", { name: "画像にして送る" }));
     expect(
@@ -306,7 +324,7 @@ describe("LetterPage", () => {
     const user = userEvent.setup();
     const { shareOrSaveVideo } = await import("../../src/media/shareBundle");
     vi.mocked(shareOrSaveVideo).mockResolvedValueOnce("saved");
-    renderLetter(apiWithLetter());
+    renderSender(apiWithLetter());
     await screen.findByText("じいじ、ばあばへ");
     await user.click(screen.getByRole("button", { name: "画像にして送る" }));
     expect(
@@ -326,7 +344,7 @@ describe("LetterPage", () => {
       ...letter,
       media: { kind: "clip", clipUrl: `/api/letters/${letter.id}/clip` },
     };
-    renderLetter(
+    renderSender(
       apiWithLetter({
         getLetter: vi.fn().mockResolvedValue({ status: "ok", letter: clipLetter }),
       }),
