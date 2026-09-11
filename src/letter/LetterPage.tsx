@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import type { LetterApi, LetterPublic, StampKind } from "../api/types";
 import brandLogo from "../assets/magocoro-logo.png";
 import { LetterPaper } from "./LetterPaper";
@@ -27,6 +27,9 @@ function postmark(iso: string): string {
 
 export function LetterPage({ api }: { api: LetterApi }) {
   const { id = "" } = useParams();
+  const location = useLocation();
+  const isSender =
+    (location.state as { fromCompose?: boolean } | null)?.fromCompose === true;
   const [view, setView] = useState<View>({ status: "loading" });
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -168,7 +171,8 @@ export function LetterPage({ api }: { api: LetterApi }) {
 
         <LetterPaper ref={paperRef} photoUrls={letter.media.kind === "clip" ? [] : letter.media.photoUrls} clipUrl={letter.media.kind === "photos" ? undefined : letter.media.clipUrl} audioUrl={letter.audioUrl} addressTo={letter.addressTo} body={letter.body} signature={letter.signature} capturing={bundling} />
 
-        <section className="share-section" aria-label="手紙を共有する">
+        {isSender ? (
+          <section className="share-section" aria-label="手紙を共有する">
           <p className="share-note">
             このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます
           </p>
@@ -203,14 +207,15 @@ export function LetterPage({ api }: { api: LetterApi }) {
                 : "LINEのトークに、この動画を送ってください"}
             </p>
           ) : null}
-          {bundleFailed ? (
-            <p className="form-error">
-              {shareKind === "image"
-                ? "画像にできませんでした。リンクを送ってください"
-                : "動画にできませんでした。リンクを送ってください"}
-            </p>
-          ) : null}
-        </section>
+            {bundleFailed ? (
+              <p className="form-error">
+                {shareKind === "image"
+                  ? "画像にできませんでした。リンクを送ってください"
+                  : "動画にできませんでした。リンクを送ってください"}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="reply-section" aria-labelledby="reply-heading">
           <div className="reply-heading-row">
