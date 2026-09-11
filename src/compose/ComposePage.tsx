@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import type { LetterApi } from "../api/types";
+import brandLogo from "../assets/magocoro-logo.png";
 import { LetterPaper } from "../letter/LetterPaper";
 import { compressImage } from "../media/compressImage";
 import { measureDuration } from "../media/measureDuration";
@@ -366,8 +367,8 @@ export function ComposePage({ api }: { api: LetterApi }) {
     <main className="page-shell compose-shell">
       <div className="page-column">
         <header className="site-header">
-          <a href="/" className="wordmark">
-            Magocoro
+          <a href="/" className="brand-link">
+            <img className="brand-logo" src={brandLogo} alt="Magocoro" />
           </a>
           <span>写真に、ことばに、ときどき声。</span>
         </header>
@@ -637,7 +638,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
           </aside>
         </div>
         <footer className="site-footer">
-          <span className="wordmark">Magocoro</span>
+          <img className="brand-logo" src={brandLogo} alt="Magocoro" />
           <span>離れていても、すぐそばに。</span>
         </footer>
       </div>

@@ -108,14 +108,25 @@ small {
   letter-spacing:.08em
 }
 
-.wordmark {
-  font-family:Georgia,"Yu Mincho",serif;
-  font-size:26px;
-  letter-spacing:.15em;
-  text-decoration:none;
-  width:max-content;
-  border-bottom:2px solid var(--brick);
-  padding-bottom:7px
+.brand-link {
+  display:inline-block;
+  line-height:0;
+  max-width:100%;
+}
+
+.brand-logo {
+  height:44px;
+  width:auto;
+  max-width:min(100%,280px);
+  display:block
+}
+
+.site-footer .brand-logo {
+  height:32px
+}
+
+.empty-letter .brand-logo {
+  margin-bottom:24px
 }
 
 .compose-shell .page-column {
@@ -586,8 +597,8 @@ small {
   color:var(--muted)
 }
 
-.site-footer .wordmark {
-  font-size:18px
+.site-footer .brand-logo {
+  height:32px
 }
 
 .letter-shell .page-column {
@@ -778,8 +789,8 @@ small {
     font-size:10px
   }
 
-  .wordmark {
-    font-size:23px
+  .brand-logo {
+    height:36px
   }
 
   .compose-intro {
