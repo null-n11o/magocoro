@@ -69,6 +69,18 @@ describe("LetterPage", () => {
     const {buildKeepVideo} = await import("../../src/letter/buildKeepVideo");
     expect(buildKeepVideo).toHaveBeenCalledWith(mixed,paper);
   });
+  it("shows the brand logo in the letter header", async () => {
+    renderLetter(apiWithLetter());
+    expect(await screen.findByRole("img", { name: "Magocoro" })).toBeInTheDocument();
+  });
+
+  it("shows the brand logo when the letter is closed", async () => {
+    renderLetter(
+      apiWithLetter({ getLetter: vi.fn().mockResolvedValue({ status: "expired" }) }),
+    );
+    expect(await screen.findByRole("img", { name: "Magocoro" })).toBeInTheDocument();
+  });
+
   it("presents the shared letter as a family photo letter", async () => {
     renderLetter(apiWithLetter());
 

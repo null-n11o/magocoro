@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { LetterApi, LetterPublic, StampKind } from "../api/types";
+import brandLogo from "../assets/magocoro-logo.png";
 import { LetterPaper } from "./LetterPaper";
 import { keepShareKind } from "../media/bundleVideo";
 import { buildKeepVideo } from "./buildKeepVideo";
@@ -90,7 +91,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
     return (
       <main className="page-shell letter-shell">
         <div className="page-column empty-letter">
-          <p className="wordmark">Magocoro</p>
+          <img className="brand-logo" src={brandLogo} alt="Magocoro" />
           <div className="empty-paper">
             <p className="empty-kicker">便りをひらけませんでした</p>
             <h1 className="empty-title">このお手紙は90日で閉じました</h1>
@@ -108,7 +109,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
     return (
       <main className="page-shell letter-shell">
         <div className="page-column empty-letter">
-          <p className="wordmark">Magocoro</p>
+          <img className="brand-logo" src={brandLogo} alt="Magocoro" />
           <div className="empty-paper">
             <p className="empty-kicker">便りをひらけませんでした</p>
             <h1 className="empty-title">お手紙が見つからない</h1>
@@ -156,8 +157,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
         <header className="letter-header" aria-label="便箋のヘッダー">
           <div className="letter-meta">
             <div className="brand-lockup">
-              <p className="wordmark">Magocoro</p>
-              <span className="brand-wave" aria-hidden="true" />
+              <img className="brand-logo" src={brandLogo} alt="Magocoro" />
             </div>
             <time className="postmark" dateTime={letter.createdAt}>
               {postmark(letter.createdAt)}
