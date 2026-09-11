@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import type { LetterApi, LetterPublic, StampKind } from "../api/types";
 import brandLogo from "../assets/magocoro-logo.png";
 import { LetterPaper } from "./LetterPaper";
@@ -27,9 +27,9 @@ function postmark(iso: string): string {
 
 export function LetterPage({ api }: { api: LetterApi }) {
   const { id = "" } = useParams();
-  const location = useLocation();
-  const isSender =
-    (location.state as { fromCompose?: boolean } | null)?.fromCompose === true;
+  const [searchParams] = useSearchParams();
+  const isSender = searchParams.get("sender") === "1";
+  const letterUrl = `${window.location.origin}/letter/${id}`;
   const [view, setView] = useState<View>({ status: "loading" });
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -73,7 +73,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
 
   async function onCopy() {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(letterUrl);
       setCopied(true);
       setCopyFailed(false);
     } catch {
@@ -197,7 +197,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
           {copyFailed ? (
             <div className="copy-error">
               <p>コピーできませんでした。下のURLを長押ししてコピーしてください</p>
-              <p className="copy-url">{window.location.href}</p>
+              <p className="copy-url">{letterUrl}</p>
             </div>
           ) : null}
           {bundleSaved ? (

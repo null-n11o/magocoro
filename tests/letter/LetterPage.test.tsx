@@ -40,15 +40,9 @@ function apiWithLetter(overrides: Partial<LetterApi> = {}): LetterApi {
   };
 }
 
-function renderLetter(
-  api: LetterApi,
-  id = letter.id,
-  state?: { fromCompose?: boolean },
-) {
+function renderLetter(api: LetterApi, id = letter.id, search = "") {
   return render(
-    <MemoryRouter
-      initialEntries={[{ pathname: `/letter/${id}`, state }]}
-    >
+    <MemoryRouter initialEntries={[{ pathname: `/letter/${id}`, search }]}>
       <Routes>
         <Route path="/letter/:id" element={<LetterPage api={api} />} />
         <Route path="/" element={<p>作る画面</p>} />
@@ -58,7 +52,7 @@ function renderLetter(
 }
 
 function renderSender(api: LetterApi, id = letter.id) {
-  return renderLetter(api, id, { fromCompose: true });
+  return renderLetter(api, id, "?sender=1");
 }
 
 describe("LetterPage", () => {
@@ -235,7 +229,7 @@ describe("LetterPage", () => {
   });
 
   it("shows the share UI only right after creating a letter", async () => {
-    renderLetter(apiWithLetter(), letter.id, { fromCompose: true });
+    renderSender(apiWithLetter());
     expect(await screen.findByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
   });
 
@@ -261,7 +255,9 @@ describe("LetterPage", () => {
       screen.getByText("このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます"),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "リンクをコピー" }));
-    expect(writeText).toHaveBeenCalled();
+    expect(writeText).toHaveBeenCalledWith(
+      `${window.location.origin}/letter/${letter.id}`,
+    );
     expect(await screen.findByText("コピーしました")).toBeInTheDocument();
   });
 
@@ -277,7 +273,7 @@ describe("LetterPage", () => {
     expect(
       await screen.findByText("コピーできませんでした。下のURLを長押ししてコピーしてください"),
     ).toBeInTheDocument();
-    expect(screen.getByText(window.location.href)).toBeInTheDocument();
+    expect(screen.getByText(`${window.location.origin}/letter/${letter.id}`)).toBeInTheDocument();
   });
 
   it("offers an image share for a photo letter without voice", async () => {
