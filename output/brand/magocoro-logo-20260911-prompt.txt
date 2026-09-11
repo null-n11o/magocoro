@@ -1,7 +1,0 @@
-Generated with the built-in image_gen tool.
-
-Use case: logo-brand.
-Create one polished final logo asset for "Magocoro", a Japanese family service where parents combine photos, a short video, personal words and a child's voice into a warm digital letter for grandparents. Existing visual identity is refined Japanese stationery, cream paper, editorial serif headlines, generous space, quiet affection.
-Produce a single horizontal logo lockup, an original symbol on the left and the exact wordmark "Magocoro" on the right. The symbol elegantly combines a softly folded envelope with a heart through simple negative space, one cohesive memorable silhouette, few shapes, clearly readable at small sizes. Avoid generic mail-app icon look; convey a precious personal letter, gentle asymmetry yet expertly balanced curves.
-Wordmark: beautifully spaced warm humanist serif lettering, readable, restrained, sophisticated with softly rounded details; exact capital M and lowercase agocoro. Symbol in muted brick red #c4543a, wordmark in warm charcoal #33302a. Flat solid colors, exceptionally crisp vector-like edges. Wide horizontal composition with balanced moderate padding, logo taking up most of width. Genuine transparent background, no simulated checkerboard, no paper texture in the asset. Fits on cream #f7f2e9 or ivory #fffdf8 stationery.
-Only this one logo. No tagline, extra text, brand board, mockup, borders, shadows, gradients, 3D, decorative emoji, purple, neon, gold, photos or watermarks.
