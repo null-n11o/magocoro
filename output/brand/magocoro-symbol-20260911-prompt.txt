@@ -1,3 +1,0 @@
-Generated with built-in image_gen, editing magocoro-logo-20260911.png.
-
-Edit the supplied approved Magocoro logo. Remove the entire Magocoro wordmark, leaving ONLY the existing brick-red envelope and negative-space heart symbol. Preserve the symbol's exact silhouette, folds, heart shape, proportions, orientation, and color; do not redesign or add anything. Reframe the isolated symbol centered on a square canvas with balanced modest padding, occupying about 80% of the width. Genuine transparent alpha background including the heart and fold gaps. No text, no letters, no shadows, no background, no checkerboard.
