@@ -40,9 +40,9 @@ function apiWithLetter(overrides: Partial<LetterApi> = {}): LetterApi {
   };
 }
 
-function renderLetter(api: LetterApi, id = letter.id, search = "") {
+function renderLetter(api: LetterApi, id = letter.id, search = "", hash = "") {
   return render(
-    <MemoryRouter initialEntries={[{ pathname: `/letter/${id}`, search }]}>
+    <MemoryRouter initialEntries={[{ pathname: `/letter/${id}`, search, hash }]}>
       <Routes>
         <Route path="/letter/:id" element={<LetterPage api={api} />} />
         <Route path="/compose" element={<p>作る画面</p>} />
@@ -51,8 +51,8 @@ function renderLetter(api: LetterApi, id = letter.id, search = "") {
   );
 }
 
-function renderSender(api: LetterApi, id = letter.id) {
-  return renderLetter(api, id, "?sender=1");
+function renderSender(api: LetterApi, id = letter.id, search = "?sender=1", hash = "") {
+  return renderLetter(api, id, search, hash);
 }
 
 describe("LetterPage", () => {
@@ -233,12 +233,21 @@ describe("LetterPage", () => {
     expect(await screen.findByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
   });
 
+  it("offers LINE sharing to senders with only the canonical letter URL", async () => {
+    renderSender(apiWithLetter(), letter.id, "?sender=1&campaign=family", "#draft");
+    expect(await screen.findByRole("link", { name: "LINEで送る" })).toHaveAttribute(
+      "href",
+      `https://line.me/R/share?text=${encodeURIComponent(`${window.location.origin}/letter/${letter.id}`)}`,
+    );
+  });
+
   it("hides the share UI from recipients but keeps the reply UI", async () => {
     renderLetter(apiWithLetter());
     await screen.findByText("お孫さんからのお手紙です");
     expect(screen.queryByRole("button", { name: "リンクをコピー" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "画像にして送る" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "動画にして送る" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "LINEで送る" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "よんだよ" })).toBeInTheDocument();
   });
 

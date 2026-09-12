@@ -25,6 +25,15 @@ describe("LandingPage", () => {
     expect(screen.getByText("写真と動画をあわせて3つまで。動画は1本・30秒まで。")).toBeInTheDocument();
     screen.getAllByRole("link", { name: "使い方" }).forEach(link => expect(link).toHaveAttribute("href", "#how-it-works"));
   });
+  it("offers optional LINE friend add without replacing creation links", () => {
+    renderLanding();
+    expect(screen.getByRole("link", { name: "LINEで友だち追加" })).toHaveAttribute(
+      "href",
+      "https://line.me/R/ti/p/%40039ijxbe",
+    );
+    expect(screen.getByText(/次からLINEですぐにお手紙をつくれます/)).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "手紙をつくる" })).toHaveLength(3);
+  });
   it.each([0, 1])("opens sample from trigger %i and restores its focus", async index => {
     const user = userEvent.setup();
     renderLanding();
@@ -43,7 +52,7 @@ describe("LandingPage", () => {
     const trigger = screen.getAllByRole("button", { name: "よくある質問" })[index];
     await user.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "よくある質問" });
-    for (const text of [/会員登録は不要/, /無料で/, /写真と動画をあわせて3つ/, /声は任意で、30秒まで/, /作成から90日間/, /リンクを知っている人/, /手動で/]) {
+    for (const text of [/会員登録は不要/, /無料で/, /写真と動画をあわせて3つ/, /声は任意で、30秒まで/, /作成から90日間/, /リンクを知っている人/, /LINEで送る/]) {
       expect(within(dialog).getByText(text)).toBeInTheDocument();
     }
     await user.click(within(dialog).getByRole("button", { name: "閉じる" }));

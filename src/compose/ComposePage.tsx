@@ -51,6 +51,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
   const [clip, setClip] = useState<File | null>(null);
   const [audio, setAudio] = useState<File | null>(null);
   const [mediaError, setMediaError] = useState("");
+  const [showBrowserRecovery, setShowBrowserRecovery] = useState(false);
   const [addressTo, setAddressTo] = useState("じいじ、ばあばへ");
   const [body, setBody] = useState("");
   const [signature, setSignature] = useState("");
@@ -118,6 +119,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
   async function onPhotos(files: FileList | null) {
     if (!files || !lock()) return;
     setMediaError("");
+    setShowBrowserRecovery(false);
     const next = [...photos];
     const added: string[] = [];
     try {
@@ -147,6 +149,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
   async function onClip(files: FileList | null) {
     const file = files?.[0];
     if (!file || !lock()) return;
+    setShowBrowserRecovery(false);
     try {
       if (!clip && photos.length >= 3) {
         setMediaError("写真と動画はあわせて3つまでです");
@@ -158,6 +161,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
         transcodeClipTo720p,
       );
       if (!result.ok) {
+        setShowBrowserRecovery(result.reason !== "too_long");
         setMediaError(
           result.reason === "too_long"
             ? "30秒以内にしてください"
@@ -167,16 +171,20 @@ export function ComposePage({ api }: { api: LetterApi }) {
       }
       setClip(result.file);
       setMediaError("");
+      setShowBrowserRecovery(false);
     } catch {
       setMediaError("この動画は使えません");
+      setShowBrowserRecovery(true);
     } finally {
       unlock();
     }
   }
   async function onAudioFile(file: File) {
+    setShowBrowserRecovery(false);
     try {
       const result = await prepareAudio(file, measureDuration);
       if (!result.ok) {
+        setShowBrowserRecovery(result.reason !== "too_long");
         setMediaError(
           result.reason === "too_long"
             ? "30秒以内にしてください"
@@ -186,8 +194,10 @@ export function ComposePage({ api }: { api: LetterApi }) {
       }
       setAudio(result.file);
       setMediaError("");
+      setShowBrowserRecovery(false);
     } catch {
       setMediaError("この音声は使えません");
+      setShowBrowserRecovery(true);
     } finally {
       unlock();
     }
@@ -213,6 +223,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
     }
     if (recordStartRef.current || !lock()) return;
     recordStartRef.current = true;
+    setShowBrowserRecovery(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -243,6 +254,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
       recordStartRef.current = false;
       unlock();
       setMediaError("録音できません");
+      setShowBrowserRecovery(true);
     }
   }
 
@@ -596,6 +608,15 @@ export function ComposePage({ api }: { api: LetterApi }) {
                 <p className="form-error" role="alert">
                   {mediaError}
                 </p>
+              )}
+              {showBrowserRecovery && (
+                <div className="browser-recovery">
+                  <p>LINEのメニューから外部ブラウザを開くか、SafariまたはChromeで試してください。</p>
+                  <a href={`${window.location.origin}/compose?openExternalBrowser=1`}>
+                    SafariまたはChromeで開く
+                  </a>
+                  <p>新しいブラウザでは、選んだ素材と入力内容をもう一度入れてください。移動するまでは、この画面の内容は残ります。</p>
+                </div>
               )}
               {reason && <p className="form-hint">{reason}</p>}
               {saveError && (

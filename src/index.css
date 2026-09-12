@@ -643,7 +643,7 @@ small {
 .share-section {
   padding:30px 0;
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:repeat(3,1fr);
   gap:12px
 }
 
@@ -659,6 +659,23 @@ small {
   font:15px sans-serif
 }
 
+.line-share-button {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:48px;
+  border-radius:6px;
+  background:var(--brick);
+  color:var(--paper);
+  font:15px sans-serif;
+  text-decoration:none;
+  transition:background .2s
+}
+
+.line-share-button:hover {
+  background:#8d4434
+}
+
 .secondary-button {
   min-height:48px
 }
@@ -667,6 +684,21 @@ small {
   grid-column:1/-1;
   font-size:13px;
   line-height:1.8
+}
+
+.browser-recovery {
+  margin:10px 0 14px;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.8
+}
+
+.browser-recovery a {
+  display:inline-flex;
+  align-items:center;
+  min-height:44px;
+  color:var(--brick);
+  text-underline-offset:4px
 }
 
 .copy-url {
