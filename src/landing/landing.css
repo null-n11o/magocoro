@@ -13,7 +13,7 @@
 .landing-page h1, .landing-page h2, .landing-page h3, .landing-cta { font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", serif; }
 .landing-page h1, .landing-page h2, .landing-page h3 { font-weight: 600; }
 .landing-page a { text-decoration: none; }
-.landing-page button { border: 0; background: transparent; border-radius: 0; color: inherit; }
+.landing-page button { min-width: 44px; min-height: 44px; border: 0; background: transparent; border-radius: 0; color: inherit; }
 .landing-page a, .landing-page button { transition: color 200ms, background-color 200ms; }
 .landing-page a:focus-visible, .landing-page button:focus-visible { outline: 2px solid var(--landing-accent); outline-offset: 5px; }
 .landing-intro { position: relative; isolation: isolate; background: var(--landing-paper); overflow: hidden; }
@@ -77,7 +77,7 @@
 .landing-faq dt { font-weight: 700; }
 .landing-faq dd { margin: 8px 0 0; color: #5b5c58; }
 @media (min-width: 1281px) { .landing-hero-art { width: calc(50% + 180px); } }
-@media (max-width: 767px) {
+@media (max-width: 960px) {
   .landing-header { height: auto; min-height: 80px; flex-wrap: wrap; padding-top: 16px; padding-bottom: 10px; gap: 8px; }
   .landing-logo { width: 128px; }
   .landing-header .landing-nav { width: 100%; justify-content: space-between; gap: 10px; font-size: 12px; }
