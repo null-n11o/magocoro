@@ -45,7 +45,7 @@ function renderLetter(api: LetterApi, id = letter.id, search = "") {
     <MemoryRouter initialEntries={[{ pathname: `/letter/${id}`, search }]}>
       <Routes>
         <Route path="/letter/:id" element={<LetterPage api={api} />} />
-        <Route path="/" element={<p>作る画面</p>} />
+        <Route path="/compose" element={<p>作る画面</p>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -171,7 +171,7 @@ describe("LetterPage", () => {
     expect(await screen.findByText("お手紙が見つからない")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "お手紙をつくる" })).toHaveAttribute(
       "href",
-      "/",
+      "/compose",
     );
   });
 
@@ -208,7 +208,7 @@ describe("LetterPage", () => {
     expect(await screen.findByText("お手紙が見つからない")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "お手紙をつくる" })).toHaveAttribute(
       "href",
-      "/",
+      "/compose",
     );
   });
 
@@ -223,7 +223,7 @@ describe("LetterPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "お手紙をつくる" })).toHaveAttribute(
       "href",
-      "/",
+      "/compose",
     );
     expect(screen.queryByText("きょうね、たてたよ")).not.toBeInTheDocument();
   });
