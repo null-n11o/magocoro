@@ -39,6 +39,9 @@ export function LetterPage({ api }: { api: LetterApi }) {
   const [bundling, setBundling] = useState(false);
   const [bundleFailed, setBundleFailed] = useState(false);
   const [bundleSaved, setBundleSaved] = useState(false);
+  const [preparedBundle, setPreparedBundle] = useState<{ letterId: string; file: File } | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [shareFailed, setShareFailed] = useState(false);
   const paperRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -138,18 +141,34 @@ export function LetterPage({ api }: { api: LetterApi }) {
     paper.classList.add("is-capturing");
     try {
       const file = await buildKeepVideo(letter, paper);
-      const result = await shareOrSaveVideo(file, {
-        canShare: (data) =>
-          typeof navigator.canShare === "function" && navigator.canShare(data),
-        share: (data) => navigator.share(data),
-        save: downloadFile,
-      });
-      if (result === "saved") setBundleSaved(true);
+      setPreparedBundle({ letterId: letter.id, file });
     } catch {
       setBundleFailed(true);
     } finally {
       paper.classList.remove("is-capturing");
       setBundling(false);
+    }
+  }
+
+  const preparedFile = preparedBundle?.letterId === letter.id ? preparedBundle.file : null;
+
+  async function onShareBundle() {
+    if (!preparedFile || sharing) return;
+    setSharing(true);
+    setShareFailed(false);
+    setBundleSaved(false);
+    try {
+      // Call sharing directly from this tap, before any asynchronous preparation.
+      const result = await shareOrSaveVideo(preparedFile, {
+        canShare: (data) => typeof navigator.canShare === "function" && navigator.canShare(data),
+        share: typeof navigator.share === "function" ? (data) => navigator.share(data) : undefined,
+        save: downloadFile,
+      });
+      if (result === "saved") setBundleSaved(true);
+    } catch {
+      setShareFailed(true);
+    } finally {
+      setSharing(false);
     }
   }
 
@@ -186,10 +205,14 @@ export function LetterPage({ api }: { api: LetterApi }) {
           <button
             type="button"
             className="primary-button"
-            onClick={() => void onBundle()}
-            disabled={bundling}
+            onClick={() => void (preparedFile ? onShareBundle() : onBundle())}
+            disabled={bundling || sharing}
           >
-            {bundling
+            {sharing
+              ? "共有画面を開いています…"
+              : preparedFile
+                ? shareKind === "image" ? "画像を共有・保存する" : "動画を共有・保存する"
+                : bundling
               ? shareKind === "image"
                 ? "画像をつくっています…"
                 : "動画をつくっています…"
@@ -197,6 +220,16 @@ export function LetterPage({ api }: { api: LetterApi }) {
                 ? "画像にして送る"
                 : "動画にして送る"}
           </button>
+          {preparedFile ? (
+            <p className="feedback-copy" role="status">
+              {shareKind === "image"
+                ? "画像ができました。上のボタンを押し、iPhoneでは共有画面の「画像を保存」で写真アプリに保存できます。"
+                : "動画ができました。上のボタンを押し、iPhoneでは共有画面の「ビデオを保存」で写真アプリに保存できます。"}
+            </p>
+          ) : null}
+          {shareFailed ? (
+            <p className="form-error" role="alert">共有できませんでした。もう一度ボタンを押してください。開けない場合はSafariでこの手紙を開くか、リンクを送ってください。</p>
+          ) : null}
           {copied ? <p className="feedback-copy">コピーしました</p> : null}
           {copyFailed ? (
             <div className="copy-error">

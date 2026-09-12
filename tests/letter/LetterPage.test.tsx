@@ -325,6 +325,36 @@ describe("LetterPage", () => {
     expect(screen.getByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
   });
 
+  it("waits for a fresh tap after generation and reuses the file for sharing", async () => {
+    const user = userEvent.setup();
+    const { buildKeepVideo } = await import("../../src/letter/buildKeepVideo");
+    const { shareOrSaveVideo } = await import("../../src/media/shareBundle");
+    vi.mocked(buildKeepVideo).mockClear();
+    vi.mocked(shareOrSaveVideo).mockClear();
+    renderSender(apiWithLetter());
+    await screen.findByText("じいじ、ばあばへ");
+    await user.click(screen.getByRole("button", { name: "画像にして送る" }));
+    expect(shareOrSaveVideo).not.toHaveBeenCalled();
+    await user.click(await screen.findByRole("button", { name: "画像を共有・保存する" }));
+    expect(shareOrSaveVideo).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "画像を共有・保存する" }));
+    expect(buildKeepVideo).toHaveBeenCalledTimes(1);
+    expect(shareOrSaveVideo).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the prepared file available when sharing fails", async () => {
+    const user = userEvent.setup();
+    const { shareOrSaveVideo } = await import("../../src/media/shareBundle");
+    vi.mocked(shareOrSaveVideo).mockRejectedValueOnce(new Error("denied"));
+    renderSender(apiWithLetter());
+    await screen.findByText("じいじ、ばあばへ");
+    await user.click(screen.getByRole("button", { name: "画像にして送る" }));
+    await user.click(await screen.findByRole("button", { name: "画像を共有・保存する" }));
+    expect(await screen.findByText(/共有できませんでした/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "画像を共有・保存する" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "リンクをコピー" })).toBeEnabled();
+  });
+
   it("explains LINE upload when the file is saved locally", async () => {
     const user = userEvent.setup();
     const { shareOrSaveVideo } = await import("../../src/media/shareBundle");
@@ -332,6 +362,7 @@ describe("LetterPage", () => {
     renderSender(apiWithLetter());
     await screen.findByText("じいじ、ばあばへ");
     await user.click(screen.getByRole("button", { name: "画像にして送る" }));
+    await user.click(await screen.findByRole("button", { name: "画像を共有・保存する" }));
     expect(
       await screen.findByText("LINEのトークに、この画像を送ってください"),
     ).toBeInTheDocument();
@@ -356,6 +387,7 @@ describe("LetterPage", () => {
     );
     await screen.findByText("じいじ、ばあばへ");
     await user.click(screen.getByRole("button", { name: "動画にして送る" }));
+    await user.click(await screen.findByRole("button", { name: "動画を共有・保存する" }));
     expect(
       await screen.findByText("LINEのトークに、この動画を送ってください"),
     ).toBeInTheDocument();

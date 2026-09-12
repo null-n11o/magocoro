@@ -20,8 +20,7 @@ export async function shareOrSaveVideo(
       ) {
         return "shared";
       }
-      deps.save(file);
-      return "saved";
+      throw error;
     }
   }
   deps.save(file);
