@@ -76,7 +76,11 @@
 .landing-faq > div { padding-block: 18px; border-top: 1px solid #ddd2c2; }
 .landing-faq dt { font-weight: 700; }
 .landing-faq dd { margin: 8px 0 0; color: #5b5c58; }
-@media (min-width: 1281px) { .landing-hero-art { width: calc(50% + 180px); } }
+@media (min-width: 1281px) {
+  .landing-hero-art { width: 700px; right: max(0px, calc((100% - 1280px) / 2 - 78px)); }
+  .landing-hero-art img { object-fit: contain; }
+  .landing-hero-art::after { background: linear-gradient(90deg, var(--landing-paper), transparent 27%, transparent 91%, var(--landing-paper)); }
+}
 @media (max-width: 960px) {
   .landing-header { height: auto; min-height: 80px; flex-wrap: wrap; padding-top: 16px; padding-bottom: 10px; gap: 8px; }
   .landing-logo { width: 128px; }
