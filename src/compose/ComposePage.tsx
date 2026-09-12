@@ -355,7 +355,7 @@ export function ComposePage({ api }: { api: LetterApi }) {
           : { kind: "photos", photos },
         ...(audio ? { audio } : {}),
       });
-      navigate(`/letter/${id}`, { state: { fromCompose: true } });
+      navigate(`/letter/${id}?sender=1`);
     } catch {
       setSaveError("いま保存できません");
     } finally {

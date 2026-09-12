@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useSearchParams } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { LetterApi } from "../../src/api/types";
 import { ComposePage } from "../../src/compose/ComposePage";
@@ -25,9 +25,8 @@ function jpeg(name = "a.jpg"): File {
 }
 
 function LetterDestination() {
-  const location = useLocation();
-  const state = location.state as { fromCompose?: boolean } | null;
-  return <p>手紙ページ{state?.fromCompose ? " 送り側" : " 受け手"}</p>;
+  const [searchParams] = useSearchParams();
+  return <p>手紙ページ{searchParams.get("sender") === "1" ? " 送り側" : " 受け手"}</p>;
 }
 
 function renderCompose(api: LetterApi) {
