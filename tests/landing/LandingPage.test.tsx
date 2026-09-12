@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { LandingPage } from "../../src/landing/LandingPage";
 
 const originalShow = HTMLDialogElement.prototype.showModal;
@@ -41,10 +41,32 @@ describe("LandingPage", () => {
     await user.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "お手紙の見本" });
     expect(dialog).toBeVisible();
-    expect(within(dialog).getByText(/静止画像/)).toBeInTheDocument();
+    expect(await within(dialog).findByRole("button", {name:"お手紙をひらく"})).toBeVisible();
+    expect(within(dialog).queryByText(/静止画像/)).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", {name:"すぐ読む"}));
+    expect(within(dialog).getByRole("article", {name:"お手紙"})).toBeVisible();
+    expect(within(dialog).getByRole("button", {name:"画像にして保存する"})).toBeVisible();
     await user.click(within(dialog).getByRole("button", { name: "閉じる" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+  });
+  it("uses local sample reactions and starts sealed with fresh reactions on each visit", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      const user = userEvent.setup();
+      renderLanding();
+      const trigger = screen.getAllByRole("button", {name:"手紙の見本を見る"})[0];
+      await user.click(trigger);
+      await user.click(await screen.findByRole("button", {name:"すぐ読む"}));
+      await user.click(screen.getByRole("button", {name:"よんだよ"}));
+      expect(await screen.findByText("「よんだよ」を試しました")).toBeVisible();
+      expect(fetchSpy).not.toHaveBeenCalled();
+      await user.click(screen.getByRole("button", {name:"閉じる"}));
+      await user.click(trigger);
+      expect(await screen.findByRole("button", {name:"お手紙をひらく"})).toBeVisible();
+      await user.click(screen.getByRole("button", {name:"すぐ読む"}));
+      expect(screen.getByRole("button", {name:"よんだよ"})).toHaveAttribute("aria-pressed", "false");
+    } finally { fetchSpy.mockRestore(); }
   });
   it.each([0, 1])("opens FAQ from trigger %i with the service limits", async index => {
     const user = userEvent.setup();

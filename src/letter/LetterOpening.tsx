@@ -8,10 +8,10 @@ function wasOpened(id: string): boolean {
   catch { return false; }
 }
 
-export function LetterOpening({ id, addressTo, signature, sender, busy = false, children }: {
-  id: string; addressTo: string; signature: string; sender: boolean; busy?: boolean; children: ReactNode;
+export function LetterOpening({ id, addressTo, signature, sender, busy = false, remember = true, children }: {
+  id: string; addressTo: string; signature: string; sender: boolean; busy?: boolean; remember?: boolean; children: ReactNode;
 }) {
-  const [stage, setStage] = useState<Stage>(() => sender || wasOpened(id) ? "open" : "sealed");
+  const [stage, setStage] = useState<Stage>(() => sender || (remember && wasOpened(id)) ? "open" : "sealed");
   const root = useRef<HTMLDivElement>(null);
   const focusPaper = useRef(false);
   const focusEnvelope = useRef(false);
@@ -24,9 +24,9 @@ export function LetterOpening({ id, addressTo, signature, sender, busy = false, 
   useEffect(() => {
     if (stage !== "open" || !focusPaper.current) return;
     focusPaper.current = false;
-    try { localStorage.setItem(storageKey(id), "1"); } catch { /* Reading works without storage. */ }
+    try { if (remember) localStorage.setItem(storageKey(id), "1"); } catch { /* Reading works without storage. */ }
     root.current?.querySelector<HTMLElement>("article")?.focus({ preventScroll: true });
-  }, [id, stage]);
+  }, [id, stage, remember]);
   useEffect(() => {
     if (stage === "sealed" && focusEnvelope.current) {
       focusEnvelope.current = false;

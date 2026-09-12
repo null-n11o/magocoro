@@ -74,7 +74,12 @@
 .landing-dialog-header h2 { font-size: 25px; }
 .landing-dialog-header button { flex-shrink: 0; border: 1px solid #b8b5ab; border-radius: 5px; }
 .landing-dialog-note { margin: 16px 0; font-size: 14px; }
-.landing-sample-image { display: block; width: 100%; height: auto; }
+.landing-dialog.landing-live-sample { padding:0; color:var(--ink); }
+.landing-live-sample .landing-dialog-header { position:sticky; top:0; z-index:10; padding:12px 20px; background:#fffdf8; border-bottom:1px solid var(--line); }
+.landing-live-sample .landing-dialog-note { padding:0 20px; line-height:1.8; }
+.landing-live-sample .page-shell { min-height:0; padding-inline:20px; }
+.sample-create { padding:0 20px 28px; text-align:center; }
+.sample-create a { display:inline-flex; align-items:center; text-decoration:none; font-size:18px; }
 .landing-faq { margin-bottom: 0; }
 .landing-faq > div { padding-block: 18px; border-top: 1px solid #ddd2c2; }
 .landing-faq dt { font-weight: 700; }
