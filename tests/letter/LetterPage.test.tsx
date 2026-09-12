@@ -108,7 +108,7 @@ describe("LetterPage", () => {
     renderSender(apiWithLetter());
     expect(
       await screen.findByText(
-        "このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます",
+        "「LINEで共有」から、送りたい友だちやグループを選べます。リンクは90日で閉じます",
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
@@ -221,20 +221,54 @@ describe("LetterPage", () => {
 
   it("offers LINE sharing to senders with only the canonical letter URL", async () => {
     renderSender(apiWithLetter(), letter.id, "?sender=1&campaign=family", "#draft");
-    expect(await screen.findByRole("link", { name: "LINEで送る" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "LINEで共有" })).toHaveAttribute(
       "href",
       `https://line.me/R/share?text=${encodeURIComponent(`${window.location.origin}/letter/${letter.id}`)}`,
     );
   });
 
-  it("hides the share UI from recipients but keeps the reply UI", async () => {
+  it("shows recipient save controls without sender-only sharing controls", async () => {
     renderLetter(apiWithLetter());
     await screen.findByText("お孫さんからのお手紙です");
     expect(screen.queryByRole("button", { name: "リンクをコピー" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "画像にして送る" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "動画にして送る" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "LINEで送る" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "画像にして保存する" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "動画にして保存する" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "LINEで共有" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "よんだよ" })).toBeInTheDocument();
+  });
+
+  it("lets recipients prepare the complete paper as an image", async () => {
+    const user = userEvent.setup();
+    const { buildKeepVideo } = await import("../../src/letter/buildKeepVideo");
+    const { shareOrSaveVideo } = await import("../../src/media/shareBundle");
+    vi.mocked(buildKeepVideo).mockClear();
+    vi.mocked(shareOrSaveVideo).mockClear();
+    vi.mocked(shareOrSaveVideo).mockResolvedValueOnce("saved");
+    renderLetter(apiWithLetter());
+    await screen.findByText("お孫さんからのお手紙です");
+    const paper = screen.getByRole("article", { name: "お手紙" });
+    await user.click(screen.getByRole("button", { name: "画像にして保存する" }));
+    expect(buildKeepVideo).toHaveBeenCalledWith(letter, paper);
+    const saveButton = await screen.findByRole("button", { name: "画像を共有・保存する" });
+    await user.click(saveButton);
+    expect(shareOrSaveVideo).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("画像を保存しました")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "リンクをコピー" })).not.toBeInTheDocument();
+  });
+
+  it("offers video saving to recipients when the letter has a clip", async () => {
+    const clipLetter: LetterPublic = {
+      ...letter,
+      media: { kind: "clip", clipUrl: `/api/letters/${letter.id}/clip` },
+    };
+    renderLetter(
+      apiWithLetter({
+        getLetter: vi.fn().mockResolvedValue({ status: "ok", letter: clipLetter }),
+      }),
+    );
+    await screen.findByText("お孫さんからのお手紙です");
+    expect(screen.getByRole("button", { name: "動画にして保存する" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "画像にして保存する" })).not.toBeInTheDocument();
   });
 
   it("shows the share UI after creating a letter", async () => {
@@ -247,7 +281,7 @@ describe("LetterPage", () => {
     renderSender(apiWithLetter());
     await screen.findByText("じいじ、ばあばへ");
     expect(
-      screen.getByText("このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます"),
+      screen.getByText("「LINEで共有」から、送りたい友だちやグループを選べます。リンクは90日で閉じます"),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "リンクをコピー" }));
     expect(writeText).toHaveBeenCalledWith(
