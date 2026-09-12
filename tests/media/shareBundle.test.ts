@@ -18,19 +18,21 @@ describe("shareOrSaveVideo", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it("saves when share is missing or throws", async () => {
+  it("saves when file sharing is unavailable", async () => {
     const save = vi.fn();
     await expect(shareOrSaveVideo(file, { canShare: () => false, save })).resolves.toBe("saved");
-    await expect(
-      shareOrSaveVideo(file, {
-        canShare: () => true,
-        share: async () => {
-          throw new Error("denied");
-        },
-        save,
-      }),
-    ).resolves.toBe("saved");
-    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenCalledWith(file);
+  });
+
+  it("does not silently download when sharing rejects the user gesture", async () => {
+    const save = vi.fn();
+    const error = new DOMException("Requires user gesture", "NotAllowedError");
+    await expect(shareOrSaveVideo(file, {
+      canShare: () => true,
+      share: async () => { throw error; },
+      save,
+    })).rejects.toBe(error);
+    expect(save).not.toHaveBeenCalled();
   });
 
   it("does not save when the user cancels the share sheet", async () => {
