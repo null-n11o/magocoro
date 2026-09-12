@@ -6,6 +6,7 @@ import photos from "../assets/lp-step-photos.png";
 import letter from "../assets/lp-step-letter.png";
 import line from "../assets/lp-step-line.png";
 import reactions from "../assets/lp-reactions.png";
+import { LINE_FRIEND_URL } from "../share/line";
 import "./landing.css";
 
 type DialogKind = "sample" | "faq";
@@ -16,7 +17,7 @@ const questions = [
   ["声も必要ですか？", "声は任意で、30秒まで添えられます。声を添えなくても、写真とことばで届けられます。"],
   ["いつまで見られますか？", "お手紙は作成から90日間、見ることができます。期限がすぎると閉じます。"],
   ["誰が手紙を見ることができますか？", "リンクを知っている人が閲覧できます。届けたい相手にリンクを共有してください。"],
-  ["LINEにはどうやって送りますか？", "できあがった手紙のリンクをコピーし、LINEのトークに手動で貼り付けて送ります。画像や動画にして送ることもできます。"],
+  ["LINEにはどうやって送りますか？", "できあがった手紙の「LINEで送る」から、送りたいトークを選んで送れます。リンクをコピーしたり、画像や動画にして送ることもできます。"],
 ];
 
 function CreateLink({ compact = false }: { compact?: boolean }) {
@@ -60,7 +61,7 @@ export function LandingPage() {
           <div className="landing-hero-copy">
             <h1 id="landing-title">なんでもない今日を、<br />とっておきの一通に。</h1>
             <p className="landing-description">写真に、ことばに、ときどき声。<br />じいじ・ばあばへ、いつものLINEで。</p>
-            <div className="landing-actions"><CreateLink />{sampleButton()}<p className="landing-no-registration">アプリ不要・会員登録不要</p></div>
+            <div className="landing-actions"><CreateLink />{sampleButton()}<p className="landing-no-registration">アプリ不要・会員登録不要</p><div className="landing-line-entry"><a href={LINE_FRIEND_URL}>LINEで友だち追加</a><p>追加すると、次からLINEですぐにお手紙をつくれます。</p></div></div>
           </div>
         </section>
       </div>

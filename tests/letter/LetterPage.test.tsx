@@ -51,8 +51,8 @@ function renderLetter(api: LetterApi, id = letter.id, search = "") {
   );
 }
 
-function renderSender(api: LetterApi, id = letter.id) {
-  return renderLetter(api, id, "?sender=1");
+function renderSender(api: LetterApi, id = letter.id, search = "?sender=1") {
+  return renderLetter(api, id, search);
 }
 
 describe("LetterPage", () => {
@@ -233,12 +233,21 @@ describe("LetterPage", () => {
     expect(await screen.findByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
   });
 
+  it("offers LINE sharing to senders with only the canonical letter URL", async () => {
+    renderSender(apiWithLetter(), letter.id, "?sender=1&campaign=family#draft");
+    expect(await screen.findByRole("link", { name: "LINEで送る" })).toHaveAttribute(
+      "href",
+      `https://line.me/R/msg/text/?${encodeURIComponent(`${window.location.origin}/letter/${letter.id}`)}`,
+    );
+  });
+
   it("hides the share UI from recipients but keeps the reply UI", async () => {
     renderLetter(apiWithLetter());
     await screen.findByText("お孫さんからのお手紙です");
     expect(screen.queryByRole("button", { name: "リンクをコピー" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "画像にして送る" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "動画にして送る" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "LINEで送る" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "よんだよ" })).toBeInTheDocument();
   });
 

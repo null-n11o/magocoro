@@ -643,7 +643,7 @@ small {
 .share-section {
   padding:30px 0;
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:repeat(3,1fr);
   gap:12px
 }
 
@@ -657,6 +657,23 @@ small {
 
 .share-section .primary-button {
   font:15px sans-serif
+}
+
+.line-share-button {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:48px;
+  border-radius:6px;
+  background:var(--brick);
+  color:var(--paper);
+  font:15px sans-serif;
+  text-decoration:none;
+  transition:background .2s
+}
+
+.line-share-button:hover {
+  background:#8d4434
 }
 
 .secondary-button {

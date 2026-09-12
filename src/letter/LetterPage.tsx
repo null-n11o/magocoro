@@ -6,6 +6,7 @@ import { LetterPaper } from "./LetterPaper";
 import { keepShareKind } from "../media/bundleVideo";
 import { buildKeepVideo } from "./buildKeepVideo";
 import { downloadFile, shareOrSaveVideo } from "../media/shareBundle";
+import { lineShareUrl } from "../share/line";
 
 type View =
   | { status: "loading" }
@@ -176,6 +177,9 @@ export function LetterPage({ api }: { api: LetterApi }) {
           <p className="share-note">
             このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます
           </p>
+          <a className="line-share-button" href={lineShareUrl(letterUrl)}>
+            LINEで送る
+          </a>
           <button type="button" className="secondary-button" onClick={() => void onCopy()}>
             リンクをコピー
           </button>
