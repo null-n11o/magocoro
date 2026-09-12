@@ -237,7 +237,7 @@ describe("LetterPage", () => {
     renderSender(apiWithLetter(), letter.id, "?sender=1&campaign=family", "#draft");
     expect(await screen.findByRole("link", { name: "LINEで送る" })).toHaveAttribute(
       "href",
-      `https://line.me/R/msg/text/?${encodeURIComponent(`${window.location.origin}/letter/${letter.id}`)}`,
+      `https://line.me/R/share?text=${encodeURIComponent(`${window.location.origin}/letter/${letter.id}`)}`,
     );
   });
 

@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useSearchParams } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { LetterApi } from "../../src/api/types";
 import { ComposePage } from "../../src/compose/ComposePage";
+import { prepareAudio } from "../../src/media/prepareAudio";
 import { prepareClip } from "../../src/media/prepareClip";
 
 vi.mock("../../src/media/compressImage", () => ({
@@ -186,6 +187,43 @@ describe("ComposePage", () => {
     await user.click(screen.getByRole("button", { name: "録音する" }));
     expect(await screen.findByText("録音できません")).toBeInTheDocument();
     expect(screen.getByLabelText("本文")).toHaveValue("きょうね、たてたよ");
+    expect(screen.getByRole("link", { name: "SafariまたはChromeで開く" })).toHaveAttribute(
+      "href",
+      `${window.location.origin}/compose?openExternalBrowser=1`,
+    );
+    expect(screen.getByText(/新しいブラウザでは、選んだ素材と入力内容をもう一度入れてください/)).toBeInTheDocument();
+  });
+
+  it("offers external-browser recovery for an unsupported video and retains the draft", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    vi.mocked(prepareClip).mockResolvedValueOnce({ ok: false, reason: "unsupported" });
+    renderCompose({ createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() });
+    await user.upload(screen.getByLabelText("写真"), jpeg());
+    await user.type(screen.getByLabelText("本文"), "公園で遊んだよ");
+    await user.upload(
+      screen.getByLabelText("動画"),
+      new File([new Uint8Array(8)], "a.mp4", { type: "video/mp4" }),
+    );
+    expect(await screen.findByText("この動画は使えません")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "選んだ写真 1" })).toBeInTheDocument();
+    expect(screen.getByLabelText("本文")).toHaveValue("公園で遊んだよ");
+    expect(screen.getByRole("link", { name: "SafariまたはChromeで開く" })).toBeInTheDocument();
+  });
+
+  it("offers external-browser recovery for an unsupported audio and retains the draft", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    vi.mocked(prepareAudio).mockResolvedValueOnce({ ok: false, reason: "unsupported" });
+    renderCompose({ createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() });
+    await user.upload(screen.getByLabelText("写真"), jpeg());
+    await user.type(screen.getByLabelText("本文"), "声も届けたいよ");
+    await user.upload(
+      screen.getByLabelText("声"),
+      new File([new Uint8Array(8)], "a.webm", { type: "audio/webm" }),
+    );
+    expect(await screen.findByText("この音声は使えません")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "選んだ写真 1" })).toBeInTheDocument();
+    expect(screen.getByLabelText("本文")).toHaveValue("声も届けたいよ");
+    expect(screen.getByRole("link", { name: "SafariまたはChromeで開く" })).toBeInTheDocument();
   });
 
   it("ignores a second record tap while getUserMedia is in flight", async () => {

@@ -686,6 +686,21 @@ small {
   line-height:1.8
 }
 
+.browser-recovery {
+  margin:10px 0 14px;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.8
+}
+
+.browser-recovery a {
+  display:inline-flex;
+  align-items:center;
+  min-height:44px;
+  color:var(--brick);
+  text-underline-offset:4px
+}
+
 .copy-url {
   overflow-wrap:anywhere
 }
