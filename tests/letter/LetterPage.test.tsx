@@ -40,9 +40,9 @@ function apiWithLetter(overrides: Partial<LetterApi> = {}): LetterApi {
   };
 }
 
-function renderLetter(api: LetterApi, id = letter.id, search = "") {
+function renderLetter(api: LetterApi, id = letter.id, search = "", hash = "") {
   return render(
-    <MemoryRouter initialEntries={[{ pathname: `/letter/${id}`, search }]}>
+    <MemoryRouter initialEntries={[{ pathname: `/letter/${id}`, search, hash }]}>
       <Routes>
         <Route path="/letter/:id" element={<LetterPage api={api} />} />
         <Route path="/compose" element={<p>作る画面</p>} />
@@ -51,8 +51,8 @@ function renderLetter(api: LetterApi, id = letter.id, search = "") {
   );
 }
 
-function renderSender(api: LetterApi, id = letter.id, search = "?sender=1") {
-  return renderLetter(api, id, search);
+function renderSender(api: LetterApi, id = letter.id, search = "?sender=1", hash = "") {
+  return renderLetter(api, id, search, hash);
 }
 
 describe("LetterPage", () => {
@@ -234,7 +234,7 @@ describe("LetterPage", () => {
   });
 
   it("offers LINE sharing to senders with only the canonical letter URL", async () => {
-    renderSender(apiWithLetter(), letter.id, "?sender=1&campaign=family#draft");
+    renderSender(apiWithLetter(), letter.id, "?sender=1&campaign=family", "#draft");
     expect(await screen.findByRole("link", { name: "LINEで送る" })).toHaveAttribute(
       "href",
       `https://line.me/R/msg/text/?${encodeURIComponent(`${window.location.origin}/letter/${letter.id}`)}`,
