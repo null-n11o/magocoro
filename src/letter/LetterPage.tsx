@@ -99,7 +99,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
             <p className="empty-kicker">便りをひらけませんでした</p>
             <h1 className="empty-title">このお手紙は90日で閉じました</h1>
             <p className="empty-copy">期限がすぎたお手紙です。新しいお手紙をつくれます。</p>
-            <Link to="/" className="text-link">
+            <Link to="/compose" className="text-link">
               お手紙をつくる
             </Link>
           </div>
@@ -117,7 +117,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
             <p className="empty-kicker">便りをひらけませんでした</p>
             <h1 className="empty-title">お手紙が見つからない</h1>
             <p className="empty-copy">リンクが古いか、手紙がまだ届いていないようです。</p>
-            <Link to="/" className="text-link">
+            <Link to="/compose" className="text-link">
               お手紙をつくる
             </Link>
           </div>
