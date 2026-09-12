@@ -44,6 +44,10 @@ Focused inspection used the live hero at1086/961px, mobile navigation/heading at
 - Console checked after sample, FAQ and composer navigation: zero warnings/errors.
 - Automated route/recovery/dialog tests cover135 total tests across app and Worker; final commands are recorded in the task report and PR.
 
+## Wide-desktop final check
+
+[P2, fixed] At the native1920px browser width, the unbounded hero artwork cropped the postal mark and lower voice/signature. Evidence: `work/lp-wide-initial.png`. The final wide breakpoint caps the artwork at700px, uses contain, aligns it with the content column and feathers both edges. Rechecked at1440px and1920px: the complete letter, mark, voice and signature remain visible; no overflow. Post-fix evidence: `work/lp-wide-final.png`. The1086px reference comparison is unaffected by this wide-only rule.
+
 ## Findings / follow-up polish
 
 No actionable P0/P1/P2 findings remain. Optional P3: compress the generated PNG assets (about4.3MB combined) for slower mobile connections. Hero is prioritized and supporting images are lazy-loaded. No throttled-network performance audit was performed.
@@ -57,3 +61,5 @@ No actionable P0/P1/P2 findings remain. Optional P3: compress the generated PNG 
 - [x] Preserve service constraints and real form behavior.
 
 final result: passed
+
+Asset generation provenance: built-in image_gen; final prompts and project paths are saved locally in `work/hero-asset.md` and `work/support-assets.md`.

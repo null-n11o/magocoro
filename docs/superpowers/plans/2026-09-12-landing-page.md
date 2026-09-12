@@ -36,7 +36,7 @@
 - Consumes: `ComposePage`、`LetterPage`、既存 `brandLogo`、別担当の5つのラスター素材。
 - Produces: `export function LandingPage()`、`/`→LP、`/compose`→ComposePage。
 
-- [ ] **Step 1: RED — 挙動テストを書く**
+- [x] **Step 1: RED — 挙動テストを書く**
 
 `tests/landing/LandingPage.test.tsx` の核となるテスト:
 ```tsx
@@ -54,13 +54,13 @@ it('opens the sample and returns focus to its trigger', async () => {
 jsdomは必要なdialogのshowModal/closeのみテスト内で補い、open属性を実際に更新する。FAQの開閉と内容、すべての作成CTAのhrefを同様にテストする。
 `tests/smoke.test.tsx` に実AppRoutesでトップは写真inputがなく、CTA押下後に写真inputが表示されることを追加する。既存受取テストで未知・期限切れの作るリンクhrefを `/compose` と確認。
 
-- [ ] **Step 2: REDを実行し未実装による失敗を記録**
+- [x] **Step 2: REDを実行し未実装による失敗を記録**
 ```sh
 npx vitest run tests/landing/LandingPage.test.tsx tests/smoke.test.tsx tests/letter/LetterPage.test.tsx
 ```
 期待: LandingPage未存在かルート/導線の違いによる失敗。失敗理由を報告に保存。
 
-- [ ] **Step 3: GREEN — LPのHTML、スタイル、ルーティングを実装**
+- [x] **Step 3: GREEN — LPのHTML、スタイル、ルーティングを実装**
 ルート変更:
 ```tsx
 <Route path="/" element={<LandingPage />} />
@@ -71,7 +71,7 @@ LPは `<main className="landing-page">` 内にheader、hero、`section id="how-i
 見出し・本文はspecの文言。参考画像は1086x1448、左右余白約65、hero高さ約606、使い方約485、反応約280、footer約77。desktop幅1086では大見出し約52px、本文20px、朱CTA約325x60。最大幅は1280程度、余白はclampで調整。hero左右45:55、stepsは等分3列で薄い縦罫線。モバイル・タブレット960px以下で縦積み、headline約34px、CTA幅100%、dialogは画面内スクロール。`landing-` prefixでスタイルを隔離し既存要素への影響を防ぐ。
 参考のロゴは既存画像を使い、高さや余白を見て配置。生成素材が到着するまで完了にしない。画像はobject-fit:containを基本とし、hero/reactionsは背景と自然につなぐ。矢印等が必要なら既存ライブラリのみ。新規手描きSVG/CSSアートなし。
 
-- [ ] **Step 4: GREENとREFACTOR、検証**
+- [x] **Step 4: GREENとREFACTOR、検証**
 ```sh
 npx vitest run tests/landing/LandingPage.test.tsx tests/smoke.test.tsx tests/letter/LetterPage.test.tsx
 npm test
@@ -80,7 +80,7 @@ npm run build
 ```
 期待: すべて成功。必要な範囲で重複解消、LP専用CSSへの隔離。controllerが実ブラウザで1086px/390px、導線・dialog・Escape・フォーカス・横はみ出し・consoleを確認し、参考と画像比較してP0/P1/P2を修正、design-qa.mdに保存。
 
-- [ ] **Step 5: Commit、レビュー、PR**
+- [x] **Step 5: Commit、レビュー、PR**
 ```sh
 git add src/landing src/assets/lp-*.png src/routes.tsx src/letter/LetterPage.tsx tests/landing tests/smoke.test.tsx tests/letter/LetterPage.test.tsx docs/superpowers/specs/2026-09-12-landing-page-design.md docs/superpowers/plans/2026-09-12-landing-page.md docs/superpowers/assets/2026-09-12-approved-lp.png
 git commit -m "feat: add welcoming landing page and compose entry"
