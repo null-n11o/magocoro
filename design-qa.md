@@ -1,33 +1,59 @@
-# Stationery UI verification — 2026-09-11
+# Landing page design QA
 
-Result: PASS for the selected LP art direction applied to the existing composer/recipient flow and the requested combined media rule. No unresolved critical or important review findings. This is a functional UI adaptation, not a pixel clone of the marketing image.
+Date: 2026-09-12
 
-## Reference and visual comparison
+## Evidence and comparison setup
 
-Reference: `docs/superpowers/assets/2026-09-10-approved-stationery.png` (user-selected first design with revised headline). Compared the source and actual browser captures together. Retained ivory paper/background, warm brick accents, serif hierarchy, handwritten hiragana letter guidance, generous spacing, subtle rules and real scalloped postage frames. Desktop uses a form beside a live letter; mobile stacks them. The requested three-item composition uses one large frame with two smaller frames. Video occupies the main frame; photo order is preserved. Actual user text is never rewritten.
+- Source visual truth: `docs/superpowers/assets/2026-09-12-approved-lp.png` (1086 × 1448 pixels).
+- Implementation: `http://127.0.0.1:5188/`, Chrome through CUA (in-app browser unavailable).
+- State: public initial LP, no dialog; all illustrative images loaded before final captures.
+- Desktop CSS viewport: 1086 × 1448; final full-page screenshot: 1086 × 1473 pixels. Screenshots have one output pixel per CSS pixel, so no density rescaling was needed.
+- Desktop evidence: `work/lp-desktop-initial.png`, `work/lp-desktop-final.png`.
+- Same-input side-by-side comparisons: `work/lp-comparison-initial.png`, `work/lp-comparison-final.png`. Source and implementation were rendered adjacent at their original 1086px width in a local comparison page, then captured together. The final 25px height difference is natural copy wrapping and meets the composition goal.
+- Responsive evidence: `work/lp-mobile-initial.png`, `work/lp-mobile-final.png` at 390px; `work/lp-tablet-initial.png`, `work/lp-tablet-final.png` at 768px.
+- Dialog evidence: `work/lp-sample-mobile.png`, `work/lp-faq-mobile.png` at 390 × 844.
+- Additional live checks at 320px and 961px. No horizontal page overflow at 320, 390, 768, 961, or 1086px.
+- Evidence files under `work/` are local verification artifacts, intentionally git-ignored.
 
-Final captures are available in the task's outputs directory as `magocoro-ui-desktop.png` (1440×1000) and `magocoro-letter-mobile.png` (390×844). Native viewport screenshots were used because the browser's full-page stitching distorted the layout. Synthetic toddler photos were used only in local QA letters, never as default user content.
+## Comparison history
 
-Initial review corrected desktop preview alignment, narrow photo controls, raster/export frame differences, bottom rule rendering, image decode timeout, M4A aliases and soundtrack retention. A second review caught early recorder failure handling; the regression now fails promptly, cancels frames and cleans resources. Final source review passed after these fixes.
+1. Initial desktop comparison: headline, CTA hierarchy, hero photograph, three steps, sage reaction band and footer matched the target composition. Existing approved brand logo replaces the older text-only wordmark intentionally. Generated individual illustration subjects/layouts retain the same stationery art direction; stock-like imagery is used only in explicitly identified examples.
+2. [P2] Initial 390px how-to heading broke the word 一通. Fixed with two unbroken phrase spans; final mobile capture reads 「いつもの一枚が、／うれしい一通に。」.
+3. [P2] Initial navigation links were 36–39px wide. Added minimum 44px width. Browser measured every visible LP link/button at least 44 × 44px after correction. Explicit minima were also added to all scoped LP buttons following code review.
+4. [P3] Initial desktop content extended to 1504px versus reference1448. Reduced step/reaction padding and widened step copy. Final height1473 retains readable copy without compressed text.
+5. [P2] At768px the original desktop breakpoint cropped the child portrait and narrowed step copy. Extended stacked layout through960px. Final768 capture contains the complete child/letter;961px desktop capture keeps the portrait visible. Mobile/desktop page width equals scrollWidth.
 
-## Browser and export evidence
+## Required fidelity surfaces
 
-Local Vite + Worker/R2 at `http://127.0.0.1:4173/`; no production writes.
+- Fonts/typography: Japanese serif headline (Noto Serif JP with system Mincho fallbacks), two-line hero, serif step headings, legible sans controls/body, raster handwritten letter. Natural mobile heading wraps verified. The design's hierarchy and approximate optical scale are retained.
+- Spacing/layout rhythm: ~65px desktop side margins, hero606px, three evenly divided step columns, restrained vertical rules, sage band and compact footer. At narrow widths, text precedes the full letter image and steps stack. No clipped interactive controls.
+- Colors/tokens: warm ivory paper, charcoal text, brick-red CTA, muted sage reaction section. Source image's texture is represented by real photographic raster assets and feathered image masks.
+- Image quality/asset fidelity: all five individual raster illustrations are supplied and displayed without placeholder artwork. Hero child, scalloped photo border, handwriting, voice graphic, stacked prints, letter, phone message and response card are present. The small decorative pen from the reference is absent and botanical placement differs; these are acceptable illustration-level differences. No fake whole-page screenshot replaces HTML.
+- Copy/content: approved hero/service/step/reaction copy and Japanese controls. Photo/video XOR text was corrected to current mixed-media limits. FAQ discloses registration, free use, optional voice,90 days, link visibility and manual LINE sharing. Static sample is labeled and never injected into real letters.
 
-- Actual composer created a three-photo letter and two-photo/video letters, including optional voice. Reload retained media and text. Read reaction retained its count after reload. Copy reported success.
-- The 30-second video limit and combined three-item capacity are enforced by client tests; malformed/duplicate media, combined capacity, old records, expiry and persistence are covered by Worker tests.
-- M4A import accepted the real AAC fixture and displayed the voice player. Native clip playback reached its two-second end. Imported OGG voice was also created and retrieved.
-- Photo-only JPEG downloaded successfully. Inspected its three media frames, hiragana body/signature and address rule; no editing or sharing controls were included.
-- Mixed MP4 downloaded with H264 video and AAC audio. Inspected a decoded frame: video stayed in its postage slot and both static photos remained. A 440Hz source clip produced a strong 440Hz output signal (1363 versus 0.25 at330Hz).
-- Mixed plus voice MP4 had H264/AAC streams, about2seconds duration. A 330Hz voice fixture replaced the440Hz clip soundtrack (330Hz magnitude1404 versus0.91 at440Hz), verifying audible voice priority rather than merely an audio-track declaration.
-- JPEG/MP4 checks used an ignored local harness importing the production LetterPaper and buildKeepVideo, bypassing only the OS share sheet. The application's native share sheet was also opened and canceled successfully.
-- Receiver widths320,390 and768 matched document scroll width. At320, all six three-photo action buttons measured74.66×44px. Desktop composer checked at1440.
-- Unknown letter shows a friendly recovery page with a creation link. Final recipient browser error/warning log was empty.
+Focused inspection used the live hero at1086/961px, mobile navigation/heading at390px, and both390px dialogs; their text and control sizes were readable independently of the scaled full-page comparison.
 
-## Automated verification
+## Functional and accessibility checks
 
-Final production source `fa01fda`: frontend98 tests and Worker26 tests pass (124total). Frontend used maxWorkers2 to avoid local resource contention. TypeScript/Vite build passes. A test-only lint warning was subsequently removed and checked separately. Functional, API, export geometry, audio setup/failure and media-readiness cases are covered; no screenshot assertions claim exact browser pixels.
+- Header creation CTA opens `/compose` with the actual photo file input; existing form starts without demo media/body.
+- How-to links navigate to `#how-it-works`.
+- Top and bottom sample triggers open the same native dialog.
+- Escape closes the sample and returns focus to the originating trigger.
+- FAQ open/close works and returns focus; its long content scrolls inside the mobile viewport.
+- All visible navigation/button targets meet44px. Focus styles, native modal semantics and CSS reduced-motion handling are present; no decorative autoplay.
+- Console checked after sample, FAQ and composer navigation: zero warnings/errors.
+- Automated route/recovery/dialog tests cover135 total tests across app and Worker; final commands are recorded in the task report and PR.
 
-## Limits
+## Findings / follow-up polish
 
-Actual iPhone hardware, Safari, microphone permission/device recording, and sharing into LINE were not exercised. These remain platform acceptance checks; this report does not claim them. Existing microphone-start failure cleanup behavior remains outside this UI change. Browser media support determines available output formats, with visible errors instead of silently dropping soundtrack. No deployment or merge performed.
+No actionable P0/P1/P2 findings remain. Optional P3: compress the generated PNG assets (about4.3MB combined) for slower mobile connections. Hero is prioritized and supporting images are lazy-loaded. No throttled-network performance audit was performed.
+
+## Implementation checklist
+
+- [x] Compare source and implementation together at matching desktop width.
+- [x] Fix mobile typography and tap targets, recapture.
+- [x] Fix tablet crop, check both sides of responsive breakpoint.
+- [x] Verify navigation, dialogs, Escape/focus and console.
+- [x] Preserve service constraints and real form behavior.
+
+final result: passed

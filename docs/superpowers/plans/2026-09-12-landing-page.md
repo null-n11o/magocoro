@@ -68,7 +68,7 @@ npx vitest run tests/landing/LandingPage.test.tsx tests/smoke.test.tsx tests/let
 <Route path="/letter/:id" element={<LetterPage api={api} />} />
 ```
 LPは `<main className="landing-page">` 内にheader、hero、`section id="how-it-works"`、反応紹介、footerを配置。CTAは `<Link to="/compose">手紙をつくる</Link>`。見本/FAQは同一のdialogを見せるstateで分岐し、dialog refのshowModal()をeffectで呼び、onCancelでstateを閉じ、起点refへフォーカス復帰。見本画像の操作バーは静止画像と注記する。
-見出し・本文はspecの文言。参考画像は1086x1448、左右余白約65、hero高さ約606、使い方約485、反応約280、footer約77。desktop幅1086では大見出し約52px、本文20px、朱CTA約325x60。最大幅は1280程度、余白はclampで調整。hero左右45:55、stepsは等分3列で薄い縦罫線。モバイル767px以下で縦積み、headline約34px、CTA幅100%、dialogは画面内スクロール。`landing-` prefixでスタイルを隔離し既存要素への影響を防ぐ。
+見出し・本文はspecの文言。参考画像は1086x1448、左右余白約65、hero高さ約606、使い方約485、反応約280、footer約77。desktop幅1086では大見出し約52px、本文20px、朱CTA約325x60。最大幅は1280程度、余白はclampで調整。hero左右45:55、stepsは等分3列で薄い縦罫線。モバイル・タブレット960px以下で縦積み、headline約34px、CTA幅100%、dialogは画面内スクロール。`landing-` prefixでスタイルを隔離し既存要素への影響を防ぐ。
 参考のロゴは既存画像を使い、高さや余白を見て配置。生成素材が到着するまで完了にしない。画像はobject-fit:containを基本とし、hero/reactionsは背景と自然につなぐ。矢印等が必要なら既存ライブラリのみ。新規手描きSVG/CSSアートなし。
 
 - [ ] **Step 4: GREENとREFACTOR、検証**
