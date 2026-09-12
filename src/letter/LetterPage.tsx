@@ -191,17 +191,25 @@ export function LetterPage({ api }: { api: LetterApi }) {
 
         <LetterPaper ref={paperRef} photoUrls={letter.media.kind === "clip" ? [] : letter.media.photoUrls} clipUrl={letter.media.kind === "photos" ? undefined : letter.media.clipUrl} audioUrl={letter.audioUrl} addressTo={letter.addressTo} body={letter.body} signature={letter.signature} capturing={bundling} />
 
-        {isSender ? (
-          <section className="share-section" aria-label="手紙を共有する">
-          <p className="share-note">
-            「LINEで共有」から、送りたい友だちやグループを選べます。リンクは90日で閉じます
-          </p>
-          <a className="line-share-button" href={lineShareUrl(letterUrl)}>
-            LINEで共有
-          </a>
-          <button type="button" className="secondary-button" onClick={() => void onCopy()}>
-            リンクをコピー
-          </button>
+        <section
+          className={`share-section${isSender ? "" : " recipient-save-section"}`}
+          aria-label={isSender ? "手紙を共有する" : "手紙を保存する"}
+        >
+          {isSender ? (
+            <>
+              <p className="share-note">
+                「LINEで共有」から、送りたい友だちやグループを選べます。リンクは90日で閉じます
+              </p>
+              <a className="line-share-button" href={lineShareUrl(letterUrl)}>
+                LINEで共有
+              </a>
+              <button type="button" className="secondary-button" onClick={() => void onCopy()}>
+                リンクをコピー
+              </button>
+            </>
+          ) : (
+            <p className="share-note">このお手紙を、便箋ごと画像や動画で保存できます</p>
+          )}
           <button
             type="button"
             className="primary-button"
@@ -213,12 +221,16 @@ export function LetterPage({ api }: { api: LetterApi }) {
               : preparedFile
                 ? shareKind === "image" ? "画像を共有・保存する" : "動画を共有・保存する"
                 : bundling
-              ? shareKind === "image"
-                ? "画像をつくっています…"
-                : "動画をつくっています…"
-              : shareKind === "image"
-                ? "画像にして送る"
-                : "動画にして送る"}
+                  ? shareKind === "image"
+                    ? "画像をつくっています…"
+                    : "動画をつくっています…"
+                  : isSender
+                    ? shareKind === "image"
+                      ? "画像にして送る"
+                      : "動画にして送る"
+                    : shareKind === "image"
+                      ? "画像にして保存する"
+                      : "動画にして保存する"}
           </button>
           {preparedFile ? (
             <p className="feedback-copy" role="status">
@@ -228,10 +240,14 @@ export function LetterPage({ api }: { api: LetterApi }) {
             </p>
           ) : null}
           {shareFailed ? (
-            <p className="form-error" role="alert">共有できませんでした。もう一度ボタンを押してください。開けない場合はSafariでこの手紙を開くか、リンクを送ってください。</p>
+            <p className="form-error" role="alert">
+              {isSender
+                ? "共有できませんでした。もう一度ボタンを押してください。開けない場合はSafariでこの手紙を開くか、リンクを送ってください。"
+                : "保存できませんでした。もう一度ボタンを押してください。開けない場合はSafariでこの手紙を開いてください。"}
+            </p>
           ) : null}
-          {copied ? <p className="feedback-copy">コピーしました</p> : null}
-          {copyFailed ? (
+          {isSender && copied ? <p className="feedback-copy">コピーしました</p> : null}
+          {isSender && copyFailed ? (
             <div className="copy-error">
               <p>コピーできませんでした。下のURLを長押ししてコピーしてください</p>
               <p className="copy-url">{letterUrl}</p>
@@ -239,20 +255,23 @@ export function LetterPage({ api }: { api: LetterApi }) {
           ) : null}
           {bundleSaved ? (
             <p className="feedback-copy">
-              {shareKind === "image"
-                ? "LINEのトークに、この画像を送ってください"
-                : "LINEのトークに、この動画を送ってください"}
+              {isSender
+                ? shareKind === "image"
+                  ? "LINEのトークに、この画像を送ってください"
+                  : "LINEのトークに、この動画を送ってください"
+                : shareKind === "image"
+                  ? "画像を保存しました"
+                  : "動画を保存しました"}
             </p>
           ) : null}
-            {bundleFailed ? (
-              <p className="form-error">
-                {shareKind === "image"
-                  ? "画像にできませんでした。リンクを送ってください"
-                  : "動画にできませんでした。リンクを送ってください"}
-              </p>
-            ) : null}
-          </section>
-        ) : null}
+          {bundleFailed ? (
+            <p className="form-error">
+              {shareKind === "image"
+                ? isSender ? "画像にできませんでした。リンクを送ってください" : "画像にできませんでした。"
+                : isSender ? "動画にできませんでした。リンクを送ってください" : "動画にできませんでした。"}
+            </p>
+          ) : null}
+        </section>
 
         <section className="reply-section" aria-labelledby="reply-heading">
           <div className="reply-heading-row">

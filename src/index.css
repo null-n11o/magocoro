@@ -659,6 +659,10 @@ small {
   font:15px sans-serif
 }
 
+.recipient-save-section .primary-button {
+  grid-column:1/-1
+}
+
 .line-share-button {
   display:flex;
   align-items:center;
