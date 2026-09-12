@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LetterApi, LetterPublic } from "../../src/api/types";
 import { LetterPage } from "../../src/letter/LetterPage";
 
@@ -56,6 +56,23 @@ function renderSender(api: LetterApi, id = letter.id, search = "?sender=1", hash
 }
 
 describe("LetterPage", () => {
+  // Existing receiver contracts exercise an already-opened letter.
+  beforeEach(() => { localStorage.setItem(`magocoro:opened:${letter.id}`, "1"); });
+
+  it("shows an ink receipt only after the reaction is saved and blocks duplicate taps", async () => {
+    let finish!: (value: Awaited<ReturnType<LetterApi["addStamp"]>>) => void;
+    const addStamp = vi.fn(() => new Promise<Awaited<ReturnType<LetterApi["addStamp"]>>>(resolve => { finish = resolve; }));
+    renderLetter(apiWithLetter({addStamp}));
+    const read = await screen.findByRole("button", {name:"よんだよ"});
+    await userEvent.click(read);
+    expect(read).toBeDisabled();
+    expect(screen.queryByText("よんだよ、を届けました")).not.toBeInTheDocument();
+    await userEvent.click(read);
+    expect(addStamp).toHaveBeenCalledTimes(1);
+    finish({status:"ok", stamps:{read:1,cute:2}});
+    expect(await screen.findByText("よんだよ、を届けました")).toBeInTheDocument();
+    expect(read).toBeEnabled();
+  });
   it("renders mixed media and preserves the original body in the exported paper", async () => {
     const mixed: LetterPublic = {...letter, body:"今日は公園へ。\nたのしかった！", media:{kind:"mixed",clipUrl:"/clip",photoUrls:["/one","/two"]}};
     renderSender(apiWithLetter({getLetter:vi.fn().mockResolvedValue({status:"ok",letter:mixed})}));
@@ -186,6 +203,8 @@ describe("LetterPage", () => {
     await screen.findByText("じいじ、ばあばへ");
     await user.click(screen.getByRole("button", { name: "よんだよ" }));
     expect(await screen.findByText("いま反応を送れません")).toBeInTheDocument();
+    expect(screen.queryByText("よんだよ、を届けました")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name:"よんだよ"})).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByText("きょうね、たてたよ")).toBeInTheDocument();
   });
 

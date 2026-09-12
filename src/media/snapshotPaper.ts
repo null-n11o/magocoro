@@ -1,4 +1,5 @@
 import { paintPostageBorder } from "./postageBorder";
+import { paintPaperSurface } from "./paperSurface";
 
 function contentBox(
   rect: DOMRect,
@@ -190,11 +191,13 @@ function paintElement(
   frames: Map<string, HTMLImageElement>,
 ): void {
   if (!(el instanceof HTMLElement) || el.tagName === "AUDIO") return;
+  if (el.dataset.paperDecoration) return;
   const style = getComputedStyle(el);
   if (style.display === "none" || style.visibility === "hidden") return;
   const rect = el.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return;
   fillRoundRect(ctx, rect, style);
+  if (el.dataset.paperSurface) paintPaperSurface(ctx, rect.left, rect.top, rect.width, rect.height);
   if (el instanceof HTMLImageElement) {
     paintReplaced(ctx, el, rect, style);
     paintBorder(ctx, rect, style);

@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import postageFrame from "../assets/postage-frame.png";
+import { PaperSurface } from "./PaperSurface";
 
 type Props = {
   photoUrls: string[];
@@ -30,8 +31,11 @@ export const LetterPaper = forwardRef<HTMLElement, Props>(function LetterPaper(
     <article
       ref={ref}
       className="letter-paper"
+      data-paper-surface="true"
+      tabIndex={-1}
       aria-label={preview ? "おてがみのようす" : "お手紙"}
     >
+      <PaperSurface />
       <div className="paper-postmark">
         <span>まごころ</span>
         <span className="postmark-rule" />

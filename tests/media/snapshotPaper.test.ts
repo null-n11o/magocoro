@@ -31,10 +31,25 @@ function mockContext() {
     clip: vi.fn(),
     rect: vi.fn(),
     measureText: vi.fn(() => ({ width: 10 })),
+    createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
   } as unknown as CanvasRenderingContext2D;
 }
 
 describe("snapshotPaper", () => {
+  it("includes paper folds in the exported canvas, excluding the decorative live canvas", async () => {
+    const paper = document.createElement("article");
+    paper.dataset.paperSurface = "true";
+    const decoration = document.createElement("canvas");
+    decoration.dataset.paperDecoration = "true";
+    paper.append(decoration);
+    vi.spyOn(paper, "getBoundingClientRect").mockReturnValue(paperBox(300, 900));
+    const ctx = mockContext();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
+    await snapshotPaper(paper);
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 285, 300, 33);
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 585, 300, 33);
+    expect(ctx.drawImage).not.toHaveBeenCalled();
+  });
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();

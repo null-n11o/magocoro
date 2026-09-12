@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import type { LetterApi, LetterPublic, StampKind } from "../api/types";
 import brandLogo from "../assets/magocoro-logo.png";
 import { LetterPaper } from "./LetterPaper";
+import { LetterOpening } from "./LetterOpening";
 import { keepShareKind } from "../media/bundleVideo";
 import { buildKeepVideo } from "./buildKeepVideo";
 import { downloadFile, shareOrSaveVideo } from "../media/shareBundle";
@@ -36,6 +37,9 @@ export function LetterPage({ api }: { api: LetterApi }) {
   const [copyFailed, setCopyFailed] = useState(false);
   const [stampError, setStampError] = useState(false);
   const [pressed, setPressed] = useState({ read: false, cute: false });
+  const [stamping, setStamping] = useState(false);
+  const stampPending = useRef(false);
+  const [stampReceipt, setStampReceipt] = useState<StampKind | null>(null);
   const [bundling, setBundling] = useState(false);
   const [bundleFailed, setBundleFailed] = useState(false);
   const [bundleSaved, setBundleSaved] = useState(false);
@@ -60,8 +64,11 @@ export function LetterPage({ api }: { api: LetterApi }) {
   }, [api, id]);
 
   async function onStamp(kind: StampKind) {
-    if (view.status !== "ok") return;
+    if (view.status !== "ok" || stampPending.current) return;
+    stampPending.current = true;
+    setStamping(true);
     setStampError(false);
+    setStampReceipt(null);
     try {
       const result = await api.addStamp(view.letter.id, kind);
       if (result.status === "not_found" || result.status === "expired") {
@@ -70,8 +77,12 @@ export function LetterPage({ api }: { api: LetterApi }) {
       }
       setView({ status: "ok", letter: { ...view.letter, stamps: result.stamps } });
       setPressed((prev) => ({ ...prev, [kind]: true }));
+      setStampReceipt(kind);
     } catch {
       setStampError(true);
+    } finally {
+      stampPending.current = false;
+      setStamping(false);
     }
   }
 
@@ -189,7 +200,12 @@ export function LetterPage({ api }: { api: LetterApi }) {
           <p className="letter-kicker">お孫さんからのお手紙です</p>
         </header>
 
-        <LetterPaper ref={paperRef} photoUrls={letter.media.kind === "clip" ? [] : letter.media.photoUrls} clipUrl={letter.media.kind === "photos" ? undefined : letter.media.clipUrl} audioUrl={letter.audioUrl} addressTo={letter.addressTo} body={letter.body} signature={letter.signature} capturing={bundling} />
+        <LetterOpening key={letter.id} id={letter.id} addressTo={letter.addressTo} signature={letter.signature} sender={isSender} busy={bundling || sharing}>
+        <div className="paper-unfold">
+          <LetterPaper ref={paperRef} photoUrls={letter.media.kind === "clip" ? [] : letter.media.photoUrls} clipUrl={letter.media.kind === "photos" ? undefined : letter.media.clipUrl} audioUrl={letter.audioUrl} addressTo={letter.addressTo} body={letter.body} signature={letter.signature} capturing={bundling} />
+          <div className="paper-fold paper-fold-top" aria-hidden="true" />
+          <div className="paper-fold paper-fold-bottom" aria-hidden="true" />
+        </div>
 
         <section
           className={`share-section${isSender ? "" : " recipient-save-section"}`}
@@ -289,6 +305,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
               aria-pressed={pressed.read}
               onClick={() => onStamp("read")}
               className="stamp-button"
+              disabled={stamping}
             >
               <span>よんだよ</span>
               <strong>{letter.stamps.read}</strong>
@@ -299,13 +316,21 @@ export function LetterPage({ api }: { api: LetterApi }) {
               aria-pressed={pressed.cute}
               onClick={() => onStamp("cute")}
               className="stamp-button"
+              disabled={stamping}
             >
               <span>かわいい！</span>
               <strong>{letter.stamps.cute}</strong>
             </button>
           </div>
+          <div className="stamp-receipt-slot" role="status" aria-live="polite">
+            {stampReceipt && <p className="stamp-receipt" key={stampReceipt}>
+              <span className="stamp-impression" aria-hidden="true">{stampReceipt === "read" ? "よんだよ" : "かわいい！"}</span>
+              <span>{stampReceipt === "read" ? "よんだよ、を届けました" : "かわいい！を届けました"}</span>
+            </p>}
+          </div>
           {stampError ? <p className="form-error">いま反応を送れません</p> : null}
         </section>
+        </LetterOpening>
       </div>
     </main>
   );
