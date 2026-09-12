@@ -20,7 +20,7 @@ Files: create src/share/line.ts and tests/share/line.test.ts; modify src/landing
 Interfaces: export LINE_FRIEND_URL constant; export lineShareUrl(letterUrl: string): string. This returns https://line.me/R/share?text= + encodeURIComponent(letterUrl). Caller supplies canonical origin + /letter/:id, not location.href.
 - [ ] Add failing tests for encoded URL including reserved characters, exact friend URL; sender-only LINE link with canonical URL stripping sender/query/hash; receiver has no LINE link; LP optional friend link alongside retained /compose CTAs.
 - [ ] Run focused Vitest using --config vitest.config.ts and record RED evidence.
-- [ ] Implement helper, sender-only anchor 「LINEで送る」 alongside existing share controls; no success toast. Add LP optional 「LINEで友だち追加」 with copy explaining next-time access. Update FAQ and README to reflect LINE sharing and optional friend add. Maintain existing style hierarchy and accessibility. User must still be able to create without friend add.
+- [ ] Implement helper, sender-only anchor 「LINEで共有」 alongside existing share controls; no success toast. Add LP optional 「LINEで友だち追加」 with copy explaining next-time access. Update FAQ and README to reflect LINE sharing and optional friend add. Maintain existing style hierarchy and accessibility. User must still be able to create without friend add.
 - [ ] Run focused tests and build; record GREEN; self-review; commit feat: add LINE entry and letter sharing.
 - [ ] Controller dispatches task reviewer for spec + quality; fix findings before completion.
 

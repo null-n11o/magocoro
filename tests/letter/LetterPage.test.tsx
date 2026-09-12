@@ -108,7 +108,7 @@ describe("LetterPage", () => {
     renderSender(apiWithLetter());
     expect(
       await screen.findByText(
-        "このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます",
+        "「LINEで共有」から、送りたい友だちやグループを選べます。リンクは90日で閉じます",
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
@@ -221,7 +221,7 @@ describe("LetterPage", () => {
 
   it("offers LINE sharing to senders with only the canonical letter URL", async () => {
     renderSender(apiWithLetter(), letter.id, "?sender=1&campaign=family", "#draft");
-    expect(await screen.findByRole("link", { name: "LINEで送る" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "LINEで共有" })).toHaveAttribute(
       "href",
       `https://line.me/R/share?text=${encodeURIComponent(`${window.location.origin}/letter/${letter.id}`)}`,
     );
@@ -233,7 +233,7 @@ describe("LetterPage", () => {
     expect(screen.queryByRole("button", { name: "リンクをコピー" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "画像にして送る" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "動画にして送る" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "LINEで送る" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "LINEで共有" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "よんだよ" })).toBeInTheDocument();
   });
 
@@ -247,7 +247,7 @@ describe("LetterPage", () => {
     renderSender(apiWithLetter());
     await screen.findByText("じいじ、ばあばへ");
     expect(
-      screen.getByText("このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます"),
+      screen.getByText("「LINEで共有」から、送りたい友だちやグループを選べます。リンクは90日で閉じます"),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "リンクをコピー" }));
     expect(writeText).toHaveBeenCalledWith(

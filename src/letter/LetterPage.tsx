@@ -194,10 +194,10 @@ export function LetterPage({ api }: { api: LetterApi }) {
         {isSender ? (
           <section className="share-section" aria-label="手紙を共有する">
           <p className="share-note">
-            このリンクをLINEに貼ると、相手のスマホでも開けます。90日で閉じます
+            「LINEで共有」から、送りたい友だちやグループを選べます。リンクは90日で閉じます
           </p>
           <a className="line-share-button" href={lineShareUrl(letterUrl)}>
-            LINEで送る
+            LINEで共有
           </a>
           <button type="button" className="secondary-button" onClick={() => void onCopy()}>
             リンクをコピー

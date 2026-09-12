@@ -52,7 +52,7 @@ describe("LandingPage", () => {
     const trigger = screen.getAllByRole("button", { name: "よくある質問" })[index];
     await user.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "よくある質問" });
-    for (const text of [/会員登録は不要/, /無料で/, /写真と動画をあわせて3つ/, /声は任意で、30秒まで/, /作成から90日間/, /リンクを知っている人/, /LINEで送る/]) {
+    for (const text of [/会員登録は不要/, /無料で/, /写真と動画をあわせて3つ/, /声は任意で、30秒まで/, /作成から90日間/, /リンクを知っている人/, /LINEで共有/]) {
       expect(within(dialog).getByText(text)).toBeInTheDocument();
     }
     await user.click(within(dialog).getByRole("button", { name: "閉じる" }));
