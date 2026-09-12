@@ -73,6 +73,7 @@ describe("buildKeepVideo", () => {
       return canvas;
     }, record, toJpeg: async () => new Blob(["image"], { type: "image/jpeg" }) });
     expect(record).toHaveBeenCalledTimes(1);
+    expect(file.name).toBe("magocoro.mp4");
     expect(file.type).toBe("video/mp4");
   });
   it("returns a jpeg of the letter paper when there is no clip and no voice", async () => {
@@ -121,26 +122,6 @@ describe("buildKeepVideo", () => {
     expect(record).toHaveBeenCalledTimes(1);
     expect(file.name).toBe("magocoro.webm");
     expect(file.type).toMatch(/^video\//);
-  });
-
-  it("names an mp4 recording magocoro.mp4", async () => {
-    const paper = document.createElement("article");
-    const canvas = document.createElement("canvas");
-    Object.defineProperty(canvas, "width", { value: 720 });
-    Object.defineProperty(canvas, "height", { value: 1280 });
-    const file = await buildKeepVideo(
-      { ...letter, audioUrl: "/api/letters/l_a/audio" },
-      paper,
-      {
-        snapshot: async () => canvas,
-        record: async () =>
-          new Blob([new Uint8Array(16)], { type: "video/mp4" }),
-        fetchBlob: async () => new Blob([new Uint8Array(4)], { type: "audio/mp4" }),
-        measureDuration: async () => 3,
-      },
-    );
-    expect(file.name).toBe("magocoro.mp4");
-    expect(file.type).toBe("video/mp4");
   });
 
   it("plays the clip inside the paper instead of filling the frame", async () => {
