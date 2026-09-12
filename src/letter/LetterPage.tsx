@@ -27,10 +27,10 @@ function postmark(iso: string): string {
   return `${value("year")}年${value("month")}月${value("day")}日`;
 }
 
-export function LetterPage({ api }: { api: LetterApi }) {
+export function LetterPage({ api, sample = false }: { api: LetterApi; sample?: boolean }) {
   const { id = "" } = useParams();
   const [searchParams] = useSearchParams();
-  const isSender = searchParams.get("sender") === "1";
+  const isSender = !sample && searchParams.get("sender") === "1";
   const letterUrl = `${window.location.origin}/letter/${id}`;
   const [view, setView] = useState<View>({ status: "loading" });
   const [copied, setCopied] = useState(false);
@@ -200,7 +200,7 @@ export function LetterPage({ api }: { api: LetterApi }) {
           <p className="letter-kicker">お孫さんからのお手紙です</p>
         </header>
 
-        <LetterOpening key={letter.id} id={letter.id} addressTo={letter.addressTo} signature={letter.signature} sender={isSender} busy={bundling || sharing}>
+        <LetterOpening key={letter.id} id={letter.id} addressTo={letter.addressTo} signature={letter.signature} sender={isSender} busy={bundling || sharing} remember={!sample}>
         <div className="paper-unfold">
           <LetterPaper ref={paperRef} photoUrls={letter.media.kind === "clip" ? [] : letter.media.photoUrls} clipUrl={letter.media.kind === "photos" ? undefined : letter.media.clipUrl} audioUrl={letter.audioUrl} addressTo={letter.addressTo} body={letter.body} signature={letter.signature} capturing={bundling} />
           <div className="paper-fold paper-fold-top" aria-hidden="true" />
@@ -325,7 +325,9 @@ export function LetterPage({ api }: { api: LetterApi }) {
           <div className="stamp-receipt-slot" role="status" aria-live="polite">
             {stampReceipt && <p className="stamp-receipt" key={stampReceipt}>
               <span className="stamp-impression" aria-hidden="true">{stampReceipt === "read" ? "よんだよ" : "かわいい！"}</span>
-              <span>{stampReceipt === "read" ? "よんだよ、を届けました" : "かわいい！を届けました"}</span>
+              <span>{sample
+                ? stampReceipt === "read" ? "「よんだよ」を試しました" : "「かわいい！」を試しました"
+                : stampReceipt === "read" ? "よんだよ、を届けました" : "かわいい！を届けました"}</span>
             </p>}
           </div>
           {stampError ? <p className="form-error">いま反応を送れません</p> : null}

@@ -7,6 +7,7 @@ import letter from "../assets/lp-step-letter.png";
 import line from "../assets/lp-step-line.png";
 import reactions from "../assets/lp-reactions.png";
 import { LINE_FRIEND_URL } from "../share/line";
+import { SampleLetter } from "./SampleLetter";
 import "./landing.css";
 
 type DialogKind = "sample" | "faq";
@@ -50,6 +51,7 @@ export function LandingPage() {
   }
 
   return (
+    <>
     <main className="landing-page">
       <div className="landing-intro">
         <div className="landing-hero-art"><img src={hero} alt="たんぽぽを吹く子どもの写真と、じいじ・ばあばに宛てた便箋の見本" width="1315" height="1196" fetchPriority="high" /></div>
@@ -84,10 +86,11 @@ export function LandingPage() {
       </section>
       <footer className="landing-footer landing-container"><img className="landing-logo" src={brandLogo} alt="Magocoro" width="840" height="301" loading="lazy" /><nav className="landing-nav" aria-label="フッターナビゲーション">{navigation()}</nav><p>手紙は作成から90日間。URLを知っている人が開けます。</p></footer>
 
-      {dialogKind && <dialog className="landing-dialog" ref={dialogRef} aria-labelledby="landing-dialog-title" onCancel={event => { event.preventDefault(); closeDialog(); }}>
-        <div className="landing-dialog-header"><h2 id="landing-dialog-title">{dialogKind === "sample" ? "お手紙の見本" : "よくある質問"}</h2><button autoFocus onClick={closeDialog}>閉じる</button></div>
-        {dialogKind === "sample" ? <><p className="landing-dialog-note">これは静止画像の見本です。画像内の再生・スタンプは操作できません。</p><img className="landing-sample-image" src={hero} alt="写真とことばと声を一通にまとめた、お手紙の見本" width="1315" height="1196" /></> : <dl className="landing-faq">{questions.map(([question, answer]) => <div key={question}><dt>{question}</dt><dd>{answer}</dd></div>)}</dl>}
-      </dialog>}
     </main>
+      {dialogKind && <dialog className={`landing-dialog${dialogKind === "sample" ? " landing-live-sample" : ""}`} ref={dialogRef} aria-labelledby="landing-dialog-title" onCancel={event => { event.preventDefault(); closeDialog(); }}>
+        <div className="landing-dialog-header"><h2 id="landing-dialog-title">{dialogKind === "sample" ? "お手紙の見本" : "よくある質問"}</h2><button autoFocus onClick={closeDialog}>閉じる</button></div>
+        {dialogKind === "sample" ? <SampleLetter /> : <dl className="landing-faq">{questions.map(([question, answer]) => <div key={question}><dt>{question}</dt><dd>{answer}</dd></div>)}</dl>}
+      </dialog>}
+    </>
   );
 }
