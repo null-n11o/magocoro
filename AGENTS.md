@@ -1,79 +1,48 @@
 # Magocoro
 
-親が写真または短い動画と、ことばと声を1通にまとめて送り、祖父母がLINEのリンクまたは動画で受け取る。今回の実装対象は無料枠に収まるまとめ手紙の1ループ（Cloudflare Pages + Worker + R2。変換は端末側）。
+親が写真・短い動画と、ことば・任意の声を一通にまとめ、祖父母がLINEのリンクや画像・動画で受け取るサービス。Vite + React + TypeScript、Cloudflare Worker + R2。変換・書き出しは端末側。
 
-## 設計書（読む順）
+## 現行仕様と入口
 
-0. `docs/superpowers/specs/2026-09-10-stationery-mixed-media-design.md`（現行UI・混在メディアの正本。以下のXOR・モバイル限定幅・配色・フォント規定を上書き）
-1. `docs/superpowers/specs/2026-09-10-magocoro-letter-bundle-design.md`（要件・設計の正本。自己完結）
-2. `docs/superpowers/plans/2026-09-10-magocoro-letter-bundle.md`（本仕様の実装計画。写真のみの旧計画は使わない）
-3. `docs/PLAN-20260908-300-magocoro-growth-share.md`（着想メモ。本仕様の制約源ではない）
-4. 新規開発の要件・計画は `docs/superpowers/specs/` と `docs/superpowers/plans/` に置く。作り方は「開発フロー」参照。
-5. 旧正本（使わない）: `docs/superpowers/specs/2026-09-08-magocoro-web-letter-design.md` / `docs/superpowers/plans/2026-09-08-magocoro-web-letter.md`
-6. 旧下書き（使わない）: `docs/superpowers/specs/2026-09-08-magocoro-mvp-design.md` / `docs/superpowers/plans/2026-09-08-magocoro-mvp-implementation.md`
+変更に関係する仕様だけを読む。競合する記述は以下の新しい改訂を優先する。
 
-## Commands
+- LINE入口・共有: `docs/superpowers/specs/2026-09-12-line-release-design.md`
+- LP・ルート: `docs/superpowers/specs/2026-09-12-landing-page-design.md`
+- 便箋UI・混在メディア: `docs/superpowers/specs/2026-09-10-stationery-mixed-media-design.md`
+- 保存・API・基本要件: `docs/superpowers/specs/2026-09-10-magocoro-letter-bundle-design.md`
 
-- `npm run dev` - 開発サーバー起動
-- `npm test` - Vitest 全テスト（`vitest run`）
-- `npx vitest run tests/<name>` - 個別テスト
-- `npm run lint` - oxlint
-- `npm run build` - 型チェック＋本番ビルド
+`/` はLP、`/compose` は作成、`/letter/:id` は受取（`src/routes.tsx`）。画面 → `src/api/letters.ts` の `LetterApi` → `worker/index.ts` / `worker/store.ts` → R2。便箋は `src/letter/LetterPaper.tsx` をプレビュー・受取・保存で共有し、変換処理は `src/media/` に置く。
 
-上記スクリプトは実装計画Task 1で作成する。それまでは存在しない。
+計画は `docs/superpowers/plans/`。既存計画を実行する依頼では該当Task順に進める。旧計画の未チェック項目を未実装と断定しない。2026-09-08の仕様・計画と `docs/PLAN-20260908-300-magocoro-growth-share.md` は履歴・着想資料であり、現行の制約源にしない。
 
-反復中は狭い検証（個別テスト）を使い、引き渡し前の広い変更では `npm test` と `npm run build` を通す。
+## 変えてはいけない境界
 
-## Architecture
+- 本文と改行は入力のまま。文面の自動生成・変換や、実際の手紙へのダミー文面・見本素材の挿入は禁止。
+- 写真・動画あわせて1〜3つ、動画は1本まで。動画・音声は端末で30秒以内を確認。写真1枚1MiB、動画10MiB、音声1MiB、合計10MiBまで。既存の写真のみ・動画のみのJSONも読めること。
+- R2には手紙JSONと圧縮済み素材だけを保存。ブラウザからR2へ直接アクセスしない。まとめ画像・動画は端末だけで作り、アップロードしない。
+- 手紙は作成から90日で閉じる。未知ID・破損データ・期限切れは専用表示と `/compose` への導線を出し、例外画面にしない。
+- LINEは既存の友だち追加・手動共有URLのみ。共有URLに `sender=1`・他のクエリ・ハッシュを含めない。SDK・Bot・自動送信・LLM・決済・サーバー変換を追加しない。外部通信は自前API・フォントCDN・上記LINE遷移に限定。秘密値はリポジトリに入れない。
+- 日本語UI（`lang="ja"`）、紙・リネン・朱色・控えめなセージ。見出しは明朝、便箋は手書き、操作部は読みやすい日本語。既存の承認済み素材・CSSを尊重し、紫・ネオン・金・飾り絵文字を足さない。
+- PCは広い2列、モバイルは1列。横スクロール禁止。操作面44px以上、フォーカス可視化、スタンプに `aria-label` と `aria-pressed`。動き150–400ms、`prefers-reduced-motion` で装飾アニメーションを無効化。
+- 写真のみ・声なしはJPEG、それ以外は便箋全体の動画。声があればクリップ音声を抑制。MP4優先・WebMフォールバック、共有失敗時のリンク共有を維持する。
 
-- 作る画面 → 端末圧縮 → `LetterApi`（`src/api/letters.ts`）→ Worker → R2。手紙画面は取得・素材・スタンプだけ同じ窓口を使う。
-- 画面は `LetterApi` にだけ依存する。LINE公式や課金を足すときは Worker の奥だけ増やす。
-- 文面生成はしない。本文は親が書いたものがそのまま載る。
-- R2 に置くのは手紙JSONと圧縮済み素材だけ。写真・動画あわせて1〜3つ（動画は1本まで）。音声は任意。ブラウザは R2 を直接叩かない。まとめ動画は端末だけで作り、R2 に上げない。
+## 作業の進め方（Codex / Astra）
 
-## Working rules
+- 依頼に必要な範囲を調べ、実装・検証・PR作成まで進める。承認済み範囲の次Taskや、可逆的な保守作業ごとに進行確認を挟まない。仕様が変わる重要判断・破壊的操作・不足情報で進めない場合だけ確認する。
+- 新機能・UI変更で要求が曖昧なら設計を合意してから実装する。複数段階の開発は仕様を `docs/superpowers/specs/`、計画を `docs/superpowers/plans/` に保存。小さな修正・文書整理・重複削除に新しい設計書や計画書を作らない。
+- スキルは依頼に適したものを選び、必要な手順だけを適用する。新規設計は brainstorming、複雑な計画は writing-plans、原因不明の不具合は investigate、UI探索は Product Design。全作業への一律適用や、複数レビューの自動連鎖は不要。
+- 原則は主エージェントが直接進める。サブエージェントは独立した調査・実装・レビューで利益がある場合だけ使い、1Taskにつき実装者とレビュー担当2名の起動を義務にしない。モデル名・推論強度はランタイムの設定に従う。
+- 挙動変更・バグ修正では、まず失敗する振る舞いのテストを確認し、最小実装で通す。文書・見た目だけの調整・重複整理では、形式的なREDや実装をなぞるテストを追加しない。
+- テストは利用者の操作、API契約、保存・期限・サイズ境界、失敗時の入力保持、メディアと共有の回帰を優先する。固定コピー・ロゴだけの確認は関連する画面テストへ統合できる。削除時は重複先か不要になった理由を示す。モック呼び出しでも録音順序・リソース解放などの契約を守るものは残す。
+- 関係ない変更・未追跡ファイルを巻き込まない。意味のある単位でコミットし、検証後に作業ブランチからPRを作成する。マージ・デプロイ・外部への送信には当該作業への明示依頼が必要。過去の公開設計の承認を新しい変更の公開許可として扱わない。
 
-- 実装計画の Task 順で進める。Taskを飛ばさない。
-- TDD厳守（RED-GREEN-REFACTOR）。プレースホルダ・ダミー文面禁止。各タスク完了ごとにコミットし、次のタスクへの進行確認を取る。
-- 実装タスクが完了したら、検証後に必ず作業ブランチからPRを作成して引き渡す。マージ・デプロイは明示依頼がない限り実施しない。
-- **設計書の制約が最優先。** UIは日本語のみ（`lang="ja"`）、コンテンツ面は和紙・便箋の質感（`page #f7f2e9` / `surface #fffdf8` / `text #33302a` / `muted #8a7f72` / `line #ddd2c2` / `accent #c4543a`）、切手風フレームは白縁＋波線、紫・ネオン・金・絵文字の装飾利用禁止、見出しと本文は Noto Sans JP、動き150–400ms（`prefers-reduced-motion` で無効化）、タップ面44px以上・スタンプボタンに `aria-label`＋`aria-pressed`、ページ全体の横スクロール禁止・最大幅モバイルカラム（`max-w-lg`）中央寄せ、秘密値はリポジトリに入れない。外部LLM・決済・LINEにはつながない（自前WorkerとフォントCDNのみ）。
-- 未知ID・破損データは落とさず専用表示＋作る導線にする。期限切れは閉じた表示＋作る導線。例外画面を出さない。
-- デプロイ・公開URL確定は明示依頼があるまで実装外。秘密値はリポジトリに入れない。
+## 検証コマンド
 
-## 開発フロー（superpowers）
+- `npm run dev` — 開発サーバー
+- `npx vitest run --config vitest.config.ts tests/<path>` — UI・APIクライアント・端末メディアの個別テスト（jsdom）
+- `npx vitest run --config vitest.worker.config.ts tests/worker/letters.test.ts` — Worker/R2テスト（Cloudflare環境。通常の設定では除外される）
+- `npm test` — 上記2環境の全テスト
+- `npm run lint` — oxlint
+- `npm run build` — アプリとWorkerの型チェック＋本番ビルド
 
-このリポジトリだけで完結する。新規開発は次の3段階で回す。KCP式のPLAN書式は使わない。
-
-1. 入力: 軽い要求定義を受け取る。アイデアメモ程度でよい（チャット貼り付け・ファイルどちらでも）。要求が荒いままなら `superpowers:brainstorming` で掘り下げ、合意した設計を `docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` に保存する。
-2. 計画: `superpowers:writing-plans` で実装計画を作り、`docs/superpowers/plans/YYYY-MM-DD-<name>.md` に保存する。タスクは短時間で終わる粒度に割り、対象ファイル・検証手順・コミット単位まで書く。
-3. 実装: `superpowers:subagent-driven-development`（サブエージェントが使える環境での既定）または `superpowers:executing-plans`（別セッション・チェックポイント型）で計画を実行する。TDD厳守、タスクごとにコミット。設計書の制約（Global Constraints）は計画に引き継ぐ。
-
-## Skill routing
-
-ユーザーの依頼に合うスキルがあるときは、Skill ツール（または各ランタイムの相当手段）で、ファイル確認や質問より先に呼び出す。迷ったら呼び出す。スキルを使うターンは、冒頭で `Using <skill> to <purpose>` と明示する。
-
-- 新規アイデアの掘り下げ -> `superpowers:brainstorming`
-- 実装計画の作成 -> `superpowers:writing-plans`
-- 実装計画の実行 -> `superpowers:subagent-driven-development`（サブエージェントが使える環境での既定）または `superpowers:executing-plans`（別セッションで実行する場合）。詳細は「Superpowers の使い方」参照。
-- UI/UXの探索・再設計・フロー監査 -> Product Designプラグイン（`product-design:index`。再設計は `product-design:get-context` → `product-design:ideate`、既存画面の監査は `product-design:audit`）
-- バグ・エラー調査 -> `investigate`
-- 仕様・スコープの戦略判断 -> `plan-ceo-review`
-- アーキテクチャ固定 -> `plan-eng-review`
-- サイト動作のQA -> `qa` / `qa-only`
-- 差分レビュー -> `review`
-- 見た目の最終磨き -> `design-review`
-- 出荷・PR -> `ship`
-- 進捗保存・復帰 -> `context-save` / `context-restore`
-
-### Taste系スキルの扱い（補助のみ）
-
-`design-taste-frontend` / `minimalist-ui` / `redesign-existing-projects` は新規画面の補助参照に限定する。設計書の制約と競合したら設計書が勝つ。taste既定のフォント差し替え・パレット変更は、設計書の改訂なしに行わない。
-
-### Superpowers の使い方
-
-- Claude Code: `superpowers` プラグインが全体に導入済み。`/superpowers-subagent-driven-development` のようにスラッシュ実行するか、Skill ツールで `superpowers:subagent-driven-development` を指定する。
-- Codex: グローバルの `superpowers@claude-plugins-official` プラグインを正規のスキル供給元として扱う。ランタイムにSkill呼び出し機能が公開されている場合は、該当するスキル名（例: `superpowers:brainstorming`）を直接呼び出す。呼び出し機能が公開されていない場合は、インストール済みプラグインの同名 `SKILL.md` を全文読んで、その手順をフォールバックとして厳密に実行する。このフォールバックを「直接発動済み」と表現しない。
-- Codexでは、毎回「適用スキルの選定→開始宣言→スキルの手順→検証」の順序を守る。`superpowers:brainstorming` は新規アイデア・機能・UI変更の前に、`superpowers:writing-plans` は承認済み設計の後に、`superpowers:subagent-driven-development` または `superpowers:executing-plans` は承認済み計画の実装時に使う。ブレインストーミングの設計承認前に実装へ進まない。
-- Codexでプラグインをインストール・更新・有効化した直後は、現在のセッションに反映されないことがあるため、新規セッションまたはアプリの再読み込み後に運用する。状態確認が必要な場合は `codex plugin list --json` で対象プラグインの `installed` と `enabled` を確認する。
-- Cursor / opencode 等: 各ランタイムのネイティブなスキル呼び出しを優先する。直接呼び出し機能がない場合は、該当する `SKILL.md` と `docs/superpowers/plans/` の計画書の手順（チェックボックス形式の Step、失敗テスト→最小実装→検証→コミット）をそのまま実行する。サブエージェント機能がある環境では1タスク1サブエージェント＋タスクごとのレビュー（仕様準拠→品質）を再現する。
-- 対応表: 同一セッションで逐次実行するなら `subagent-driven-development`、別セッションでチェックポイントを挟むなら `executing-plans`。どちらもテスト→実装→検証→コミットの順序は変えない。
+反復中は関係する個別テスト。広い変更・テスト整理の引き渡し前は全テスト・lint・buildを一度通す。文書のみなら参照先・コマンド・差分を確認する。成功後の同じ検証は、追加変更や未解決の懸念がなければ繰り返さない。UI変更は実ブラウザも確認する。jsdomやデスクトップ検証からiOS/Android実機の録音・保存・LINE動作の成功を推定しない。

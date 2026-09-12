@@ -67,22 +67,12 @@ describe("LetterPage", () => {
     const {buildKeepVideo} = await import("../../src/letter/buildKeepVideo");
     expect(buildKeepVideo).toHaveBeenCalledWith(mixed,paper);
   });
-  it("shows the brand logo in the letter header", async () => {
-    renderLetter(apiWithLetter());
-    expect(await screen.findByRole("img", { name: "Magocoro" })).toBeInTheDocument();
-  });
-
-  it("shows the brand logo when the letter is closed", async () => {
-    renderLetter(
-      apiWithLetter({ getLetter: vi.fn().mockResolvedValue({ status: "expired" }) }),
-    );
-    expect(await screen.findByRole("img", { name: "Magocoro" })).toBeInTheDocument();
-  });
 
   it("presents the shared letter as a family photo letter", async () => {
     renderSender(apiWithLetter());
 
     await screen.findByText("お孫さんからのお手紙です");
+    expect(screen.getByRole("img", { name: "Magocoro" })).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "こんなことがあったよ" }),
     ).not.toBeInTheDocument();
@@ -225,12 +215,8 @@ describe("LetterPage", () => {
       "href",
       "/compose",
     );
+    expect(screen.getByRole("img", { name: "Magocoro" })).toBeInTheDocument();
     expect(screen.queryByText("きょうね、たてたよ")).not.toBeInTheDocument();
-  });
-
-  it("shows the share UI only right after creating a letter", async () => {
-    renderSender(apiWithLetter());
-    expect(await screen.findByRole("button", { name: "リンクをコピー" })).toBeInTheDocument();
   });
 
   it("offers LINE sharing to senders with only the canonical letter URL", async () => {

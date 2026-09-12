@@ -47,10 +47,6 @@ describe("ComposePage", () => {
     expect(screen.getByRole("heading", { name: /なんでもない今日を/ })).toBeInTheDocument();
     expect(screen.getByLabelText("お手紙のプレビュー")).toBeInTheDocument();
     expect(screen.getByLabelText("本文")).toHaveValue("");
-  });
-
-  it("shows the brand logo in the header", () => {
-    renderCompose({ createLetter: vi.fn(), getLetter: vi.fn(), addStamp: vi.fn() });
     const home = screen.getByRole("link", { name: "Magocoro" });
     expect(home).toHaveAttribute("href", "/");
     expect(home.querySelector("img.brand-logo")).toBeInTheDocument();

@@ -36,7 +36,9 @@ npm run lint     # oxlint
 npm run build    # 型チェックと本番ビルド
 ```
 
-個別テストは `npx vitest run tests/<name>` です。
+UI・端末処理の個別テストは `npx vitest run --config vitest.config.ts tests/<path>`、Workerは `npx vitest run --config vitest.worker.config.ts tests/worker/letters.test.ts` です。`npm test` は両方を実行します。
+
+エージェント向けの作業指示と現行仕様への入口は [AGENTS.md](AGENTS.md) にまとめています。
 
 ## サービス案内
 
